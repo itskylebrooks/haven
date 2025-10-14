@@ -20,7 +20,16 @@ import { initDB, getStateForUser, addTrace as dbAddTrace, addReflection as dbAdd
 
 const HavenMinimal = () => {
   const [state, setState] = useState<HavenState>({ traces: [], connections: {} })
-  const [mode, setMode] = useState<Mode>('circles')
+  // Initialize mode from current pathname to avoid flash where "Circles" briefly appears
+  const initialPath = typeof window !== 'undefined' ? window.location.pathname : '/circles'
+  const guessInitialMode = (path: string): Mode => {
+    const parts = path.replace(/^\/+/, '').split('/')
+    if (parts[0] === '' || parts[0] === 'circles') return 'circles'
+    if (parts[0] === 'signals') return 'signals'
+    if (parts.length === 1) return parts[0] === '' ? 'circles' : 'user'
+    return 'trace'
+  }
+  const [mode, setMode] = useState<Mode>(() => guessInitialMode(initialPath))
   // viewUser stores a username when viewing other user
   const [viewUser, setViewUser] = useState<string | null>(null)
   const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null)
@@ -199,12 +208,13 @@ const HavenMinimal = () => {
 
   // Init + back/forward routing
   useEffect(() => {
+    // Ensure the in-memory mode matches the URL on mount without triggering a visible tab change
     const current = window.location.pathname
     if (current === '/' || current === '') {
-      // default to circles
       window.history.replaceState({}, '', '/circles')
       applyRoute('/circles')
     } else {
+      // applyRoute will set the correct mode/view synchronously
       applyRoute(current)
     }
 
