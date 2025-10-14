@@ -122,7 +122,14 @@ const HavenMinimal = () => {
     [sortedTraces],
   )
 
-  const feedTraces = useMemo(() => filterForMode(mode), [mode, filterForMode])
+  const feedTraces = useMemo(() => {
+    const list = filterForMode(mode)
+    // Defensive: if list is unexpectedly empty but we have traces, fall back to all
+    if (list.length === 0 && state.traces.length > 0 && (mode === 'circles' || mode === 'signals')) {
+      return [...state.traces].filter((t) => (mode === 'circles' ? t.kind === 'circle' : t.kind === 'signal')).sort((a, b) => b.createdAt - a.createdAt)
+    }
+    return list
+  }, [mode, filterForMode, state.traces])
 
   const formatTime = useCallback(
     (createdAt: number) => {
@@ -361,7 +368,7 @@ const HavenMinimal = () => {
     setState(snapshot)
   }
 
-  const canGoBack = mode === 'user' || mode === 'trace'
+  // TopBar is always consistent; per-design back buttons live within profile pages
 
   const footerAction =
     mode === 'profile'
@@ -375,8 +382,6 @@ const HavenMinimal = () => {
     <div className="flex min-h-screen flex-col bg-neutral-950 font-sans text-neutral-100">
       <TopBar
         mode={mode}
-        onBack={handleBack}
-        canGoBack={canGoBack}
         onSelectTab={(tab) => {
           setMode(tab)
           setViewUser(null)
@@ -433,6 +438,15 @@ const HavenMinimal = () => {
             exit={pageVariants.exit}
           >
             <div className="mx-auto w-full max-w-xl space-y-8 px-4 py-10">
+              <div className="mb-4">
+                <button
+                  onClick={handleBack}
+                  className="text-sm text-neutral-400 transition hover:text-white"
+                  aria-label="Go back"
+                >
+                  ← Back
+                </button>
+              </div>
               <ProfileHeader
                 name={meUser.name}
                 handle={meUser.handle}

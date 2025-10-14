@@ -34,9 +34,53 @@ export const usernameToAuthorName = (username: string) => {
 
 export const initDB = async (): Promise<void> => {
   await seedIfEmpty()
+  await removeDuplicateTraces()
+}
+
+export const removeDuplicateTraces = async (): Promise<void> => {
+  const all = await db.traces.toArray()
+  if (all.length <= 1) return
+  const byKey = new Map<string, DBTrace[]>()
+  for (const t of all) {
+    const key = `${t.author}|${t.kind}|${t.text.trim()}`
+    const list = byKey.get(key) ?? []
+    list.push(t)
+    byKey.set(key, list)
+  }
+  const toDelete: string[] = []
+  for (const [, list] of byKey) {
+    if (list.length <= 1) continue
+    // Keep the most recent, delete older duplicates
+    list.sort((a, b) => b.createdAt - a.createdAt)
+    for (let i = 1; i < list.length; i++) toDelete.push(list[i].id)
+  }
+  if (toDelete.length) {
+    await db.traces.bulkDelete(toDelete)
+  }
+  // Also dedupe reflections by (traceId, author, text)
+  const allRefl = await db.reflections.toArray()
+  const reflKeyed = new Map<string, string[]>()
+  for (const r of allRefl) {
+    const key = `${r.traceId}|${r.author}|${r.text.trim()}`
+    const list = reflKeyed.get(key) ?? []
+    list.push(r.id)
+    reflKeyed.set(key, list)
+  }
+  const reflToDelete: string[] = []
+  for (const [, ids] of reflKeyed) {
+    if (ids.length > 1) {
+      // keep the first id; delete the rest
+      for (let i = 1; i < ids.length; i++) reflToDelete.push(ids[i])
+    }
+  }
+  if (reflToDelete.length) {
+    await db.reflections.bulkDelete(reflToDelete)
+  }
 }
 
 export const getStateForUser = async (userId: string): Promise<HavenState> => {
+  // Normalize DB to avoid duplicate content caused by earlier seeds
+  await removeDuplicateTraces()
   const [dbTraces, userResonates, dbReflections, dbConnections] = await Promise.all([
     db.traces.orderBy('createdAt').reverse().toArray(),
     db.resonates.where('userId').equals(userId).toArray(),
@@ -47,15 +91,25 @@ export const getStateForUser = async (userId: string): Promise<HavenState> => {
   const resonateSet = new Set(userResonates.map((r) => r.traceId))
   const reflectionsByTrace = dbReflections.reduce<Record<string, Reflection[]>>((acc, r) => {
     const list = acc[r.traceId] || (acc[r.traceId] = [])
-    list.push({ id: r.id, author: usernameToAuthorName(r.author), text: r.text, createdAt: r.createdAt })
+    if (!list.some((x) => x.id === r.id)) {
+      list.push({ id: r.id, author: usernameToAuthorName(r.author), text: r.text, createdAt: r.createdAt })
+    }
     return acc
   }, {})
 
-  const traces: Trace[] = dbTraces.map((t) => ({
-    ...toTrace(t),
-    resonates: resonateSet.has(t.id),
-    reflections: (reflectionsByTrace[t.id] || []).sort((a, b) => a.createdAt - b.createdAt),
-  }))
+  // In-memory safety: dedupe by (author, kind, text)
+  const seen = new Set<string>()
+  const traces: Trace[] = []
+  for (const t of dbTraces) {
+    const key = `${t.author}|${t.kind}|${t.text.trim()}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    traces.push({
+      ...toTrace(t),
+      resonates: resonateSet.has(t.id),
+      reflections: (reflectionsByTrace[t.id] || []).sort((a, b) => a.createdAt - b.createdAt),
+    })
+  }
 
   const connections: HavenState['connections'] = {}
   dbConnections.forEach((c) => (connections[c.toUser] = true))

@@ -42,6 +42,15 @@ const UserProfile = ({
 
   return (
     <div className="mx-auto w-full max-w-xl space-y-6 px-4 py-10">
+      <div className="mb-2">
+        <button
+          onClick={() => window.history.back()}
+          className="text-sm text-neutral-400 transition hover:text-white"
+          aria-label="Go back"
+        >
+          ← Back
+        </button>
+      </div>
       <ProfileHeader
         name={profile.name}
         handle={profile.handle}
