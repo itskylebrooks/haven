@@ -32,6 +32,7 @@ const ComposerModal = ({
 }: ComposerModalProps) => {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const MAX_LENGTH = 512
 
   useEffect(() => {
     if (isOpen) {
@@ -62,8 +63,13 @@ const ComposerModal = ({
         <textarea
           ref={textareaRef}
           value={draft}
-          onChange={(event) => onDraftChange(event.target.value)}
+          onChange={(event) => {
+            const v = event.target.value
+            // Enforce max length defensively (slices pasted content)
+            onDraftChange(v.length > MAX_LENGTH ? v.slice(0, MAX_LENGTH) : v)
+          }}
           placeholder="What’s on your mind?"
+          maxLength={MAX_LENGTH}
           className="h-32 w-full resize-none rounded-lg border border-white/10 bg-black p-3 text-neutral-100 placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-violet-400/40"
           aria-label="Trace editor"
         />
@@ -126,19 +132,34 @@ const ComposerModal = ({
               )
             })}
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={onClose}
-              className="text-sm text-neutral-400 transition hover:text-white"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={onPost}
-              className="rounded-md bg-white px-4 py-1.5 text-sm font-medium text-neutral-950 transition hover:bg-white/80"
-            >
-              {submitLabel}
-            </button>
+          <div className="flex items-center gap-4">
+            <div className="text-sm text-neutral-400">
+              {MAX_LENGTH - draft.length} characters left
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={onClose}
+                className="text-sm text-neutral-400 transition hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (draft.trim().length === 0 || draft.length > MAX_LENGTH) return
+                  onPost()
+                }}
+                disabled={draft.trim().length === 0 || draft.length > MAX_LENGTH}
+                aria-disabled={draft.trim().length === 0 || draft.length > MAX_LENGTH}
+                className={
+                  'rounded-md px-4 py-1.5 text-sm font-medium transition ' +
+                  (draft.trim().length === 0 || draft.length > MAX_LENGTH
+                    ? 'bg-white/30 text-neutral-800 cursor-not-allowed'
+                    : 'bg-white text-neutral-950 hover:bg-white/80')
+                }
+              >
+                {submitLabel}
+              </button>
+            </div>
           </div>
         </div>
       </motion.div>
