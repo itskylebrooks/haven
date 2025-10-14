@@ -34,6 +34,41 @@ export const usernameToAuthorName = (username: string) => {
 
 export const initDB = async (): Promise<void> => {
   await seedIfEmpty()
+  await dedupeTraces()
+}
+
+// Remove duplicate traces (same author, kind, and text) keeping the newest
+export const dedupeTraces = async (): Promise<void> => {
+  const traces = await db.traces.toArray()
+  if (!traces.length) return
+
+  const keyFor = (t: DBTrace) => `${t.author}|${t.kind}|${t.text.trim()}`
+  const map = new Map<string, DBTrace[]>()
+  for (const t of traces) {
+    const k = keyFor(t)
+    const list = map.get(k)
+    if (list) list.push(t)
+    else map.set(k, [t])
+  }
+
+  const toDelete = new Set<string>()
+  for (const [, list] of map) {
+    if (list.length <= 1) continue
+    // Keep the newest by createdAt; delete others
+    list.sort((a, b) => b.createdAt - a.createdAt)
+    for (let i = 1; i < list.length; i++) toDelete.add(list[i].id)
+  }
+  if (toDelete.size === 0) return
+
+  const ids = Array.from(toDelete)
+  await db.transaction('rw', db.traces, db.reflections, db.resonates, async () => {
+    // Delete related reflections and resonates, then traces
+    const allRefs = await db.reflections.where('traceId').anyOf(ids).toArray()
+    for (const r of allRefs) await db.reflections.delete(r.id)
+    const allRes = await db.resonates.where('traceId').anyOf(ids).toArray()
+    for (const res of allRes) if (res.id != null) await db.resonates.delete(res.id)
+    for (const id of ids) await db.traces.delete(id)
+  })
 }
 
 export const getStateForUser = async (userId: string): Promise<HavenState> => {

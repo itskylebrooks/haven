@@ -14,8 +14,9 @@ const randId = () => {
 const now = () => Date.now()
 
 export const seedIfEmpty = async () => {
-  const traceCount = await db.traces.count()
-  if (traceCount > 0) return
+  // Fast-path: if we've already seeded, bail
+  const alreadySeeded = await db.settings.get('seeded')
+  if (alreadySeeded) return
 
   const users: DBUser[] = [
     { id: 'itskylebrooks', name: 'Kyle Brooks', handle: '@itskylebrooks', bio: 'learning to slow down', circlesCount: 42, signalsCount: 8 },
@@ -93,7 +94,19 @@ export const seedIfEmpty = async () => {
     createdAt: n - t.offset,
   }))
 
-  await db.transaction('rw', db.users, db.traces, db.reflections, async () => {
+  // Use a single transaction and a lightweight lock to prevent concurrent seeding
+  await db.transaction('rw', db.settings, db.users, db.traces, db.reflections, db.connections, db.subscriptions, async () => {
+    const seeded = await db.settings.get('seeded')
+    if (seeded) return
+
+    // Acquire lock (primary key on settings.key ensures only one succeeds)
+    try {
+      await db.settings.add({ key: 'seeding', value: Date.now() })
+    } catch {
+      // Another seeding is in progress or completed
+      return
+    }
+
     await db.users.bulkPut(users)
     await db.traces.bulkPut(traces)
 
@@ -113,10 +126,8 @@ export const seedIfEmpty = async () => {
       }
     }
     if (reflections.length) await db.reflections.bulkPut(reflections)
-  })
 
-  // Add connections and subscriptions
-  await db.transaction('rw', db.connections, db.subscriptions, async () => {
+    // Add connections and subscriptions
     const connections = [
       { fromUser: 'itskylebrooks', toUser: 'lena', createdAt: n - 1 * HOURS },
       { fromUser: 'lena', toUser: 'itskylebrooks', createdAt: n - 1 * HOURS },
@@ -134,6 +145,9 @@ export const seedIfEmpty = async () => {
       { follower: 'itskylebrooks', followee: 'ava', createdAt: n - 5 * HOURS },
     ]
     await db.subscriptions.bulkPut(subscriptions)
+
+    // Mark as seeded and release lock
+    await db.settings.put({ key: 'seeded', value: true })
+    await db.settings.delete('seeding')
   })
 }
-
