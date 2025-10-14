@@ -33,13 +33,25 @@ const TraceCard = ({
       transition={cardTransition.animate.transition}
     >
       <div
+        role="button"
+        tabIndex={0}
+        onClick={() => onReflect(trace.id)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            onReflect(trace.id)
+          }
+        }}
         className={clsx(
           'relative overflow-hidden rounded-2xl border border-white/5 bg-black/60 p-4 transition-colors hover:border-white/10',
         )}
       >
         <div className="mb-2 flex items-center justify-between text-sm text-neutral-400">
           <button
-            onClick={() => onOpenProfile(trace.author)}
+            onClick={(e) => {
+              e.stopPropagation()
+              onOpenProfile(trace.author)
+            }}
             className="font-medium text-neutral-100 transition hover:underline"
           >
             {trace.author}
@@ -56,7 +68,10 @@ const TraceCard = ({
 
         <div className="mt-3 flex gap-4 text-sm text-neutral-400">
           <motion.button
-            onClick={() => onResonate(trace.id)}
+            onClick={(e) => {
+              e.stopPropagation()
+              onResonate(trace.id)
+            }}
             className="flex items-center gap-1 transition hover:text-white"
             aria-label="Resonate trace"
             aria-pressed={trace.resonates ?? false}
@@ -82,7 +97,10 @@ const TraceCard = ({
           </motion.button>
           {!hideReflect && (
             <button
-              onClick={() => onReflect(trace.id)}
+              onClick={(e) => {
+                e.stopPropagation()
+                onReflect(trace.id)
+              }}
               className="flex items-center gap-1 transition hover:text-white"
               aria-label="Reflect on trace"
             >
@@ -92,7 +110,10 @@ const TraceCard = ({
           )}
           {canDelete && onDelete && (
             <button
-              onClick={() => onDelete(trace.id)}
+              onClick={(e) => {
+                e.stopPropagation()
+                onDelete(trace.id)
+              }}
               className="flex items-center gap-1 transition hover:text-white"
               aria-label="Delete trace"
             >
