@@ -706,7 +706,7 @@ const HavenMinimal = () => {
       </AnimatePresence>
 
       <footer className="border-t border-white/5 py-6 text-center text-xs text-neutral-600">
-        Haven · v3 prototype
+        Haven · v0.0.1 prototype
         {footerAction && (
           <button
             onClick={footerAction.action}
