@@ -1,6 +1,7 @@
-import type { Trace } from '../lib/types'
+import type { Trace, TraceType } from '../lib/types'
 import ProfileHeader from './ProfileHeader'
 import TraceCard from './TraceCard'
+import ProfileSwitcher from './profile/ProfileSwitcher'
 
 type UserProfileProps = {
   profile: {
@@ -18,6 +19,8 @@ type UserProfileProps = {
   onReflect: (traceId: string) => void
   onOpenProfile: (author: string) => void
   formatTime: (createdAt: number) => string
+  filterKind: TraceType
+  onChangeFilter: (kind: TraceType) => void
 }
 
 const UserProfile = ({
@@ -29,9 +32,12 @@ const UserProfile = ({
   onReflect,
   onOpenProfile,
   formatTime,
+  filterKind,
+  onChangeFilter,
 }: UserProfileProps) => {
   const visibleTraces = traces
-    .filter((trace) => trace.kind === 'signal' || connected)
+    .filter((trace) => trace.kind === filterKind)
+    .filter((trace) => (trace.kind === 'circle' ? connected : true))
     .sort((a, b) => b.createdAt - a.createdAt)
 
   return (
@@ -56,10 +62,16 @@ const UserProfile = ({
         </div>
       )}
 
+      <div className="flex justify-center">
+        <ProfileSwitcher current={filterKind} onChange={onChangeFilter} />
+      </div>
+
       <section className="space-y-4">
         {visibleTraces.length === 0 ? (
           <p className="rounded-xl border border-white/5 bg-neutral-950/60 p-4 text-sm text-neutral-400">
-            Their signals are resting for now.
+            {filterKind === 'circle' && !connected
+              ? 'Circles are mutual. Connect to see each other’s Circles.'
+              : 'No traces yet.'}
           </p>
         ) : (
           visibleTraces.map((trace) => (
@@ -70,7 +82,6 @@ const UserProfile = ({
               onResonate={onResonate}
               onReflect={onReflect}
               onOpenProfile={onOpenProfile}
-              showKindLabel
             />
           ))
         )}

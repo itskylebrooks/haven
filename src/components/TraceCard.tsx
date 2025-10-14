@@ -10,7 +10,6 @@ type TraceCardProps = {
   onResonate: (traceId: string) => void
   onReflect: (traceId: string) => void
   onOpenProfile: (author: string) => void
-  showKindLabel?: boolean
   hideReflect?: boolean
 }
 
@@ -20,7 +19,6 @@ const TraceCard = ({
   onResonate,
   onReflect,
   onOpenProfile,
-  showKindLabel,
   hideReflect,
 }: TraceCardProps) => {
   return (
@@ -44,12 +42,6 @@ const TraceCard = ({
           </button>
           <span>{timeLabel}</span>
         </div>
-
-        {showKindLabel && (
-          <span className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1 text-xs uppercase tracking-wide text-neutral-300">
-            {trace.kind === 'circle' ? 'Circle' : 'Signal'}
-          </span>
-        )}
 
         <p className="text-[15px] leading-relaxed text-neutral-100">{trace.text}</p>
 

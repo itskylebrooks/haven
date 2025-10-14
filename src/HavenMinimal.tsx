@@ -7,6 +7,7 @@ import UserProfile from './components/UserProfile'
 import ProfileHeader from './components/ProfileHeader'
 import TraceCard from './components/TraceCard'
 import EmptyState from './components/EmptyState'
+import ProfileSwitcher from './components/profile/ProfileSwitcher'
 import type {
   HavenState,
   Mode,
@@ -171,6 +172,8 @@ const HavenMinimal = () => {
   const [draftKind, setDraftKind] = useState<TraceType>('circle')
   const [returnMode, setReturnMode] = useState<Mode>('circles')
   const [reflectionDraft, setReflectionDraft] = useState('')
+  const [selfProfileKind, setSelfProfileKind] = useState<TraceType>('circle')
+  const [otherProfileKind, setOtherProfileKind] = useState<TraceType>('signal')
   const minuteTicker = useMinuteTicker()
 
   const sortedTraces = useMemo(
@@ -286,6 +289,7 @@ const HavenMinimal = () => {
     if (author === ME.name) {
       setMode('profile')
       setViewUser(null)
+      setSelfProfileKind('circle')
       return
     }
 
@@ -355,6 +359,14 @@ const HavenMinimal = () => {
       },
     }))
   }
+
+  // Default profile tab for other users depends on connection
+  useEffect(() => {
+    if (mode === 'user' && viewUser) {
+      const connected = !!state.connections[viewUser]
+      setOtherProfileKind(connected ? 'circle' : 'signal')
+    }
+  }, [mode, viewUser, state.connections])
 
   const resetDemoData = () => {
     clearState()
@@ -440,9 +452,16 @@ const HavenMinimal = () => {
                 circles={ME.circles}
                 signals={ME.signals}
               />
+              <div className="flex justify-center">
+                <ProfileSwitcher
+                  current={selfProfileKind}
+                  onChange={setSelfProfileKind}
+                />
+              </div>
               <section className="space-y-4">
                 {sortedTraces
                   .filter((trace) => trace.author === ME.name)
+                  .filter((trace) => trace.kind === selfProfileKind)
                   .map((trace) => (
                     <TraceCard
                       key={trace.id}
@@ -451,10 +470,9 @@ const HavenMinimal = () => {
                       onResonate={handleResonate}
                       onReflect={openTraceDetail}
                       onOpenProfile={openAuthorProfile}
-                      showKindLabel
                     />
                   ))}
-                {sortedTraces.filter((trace) => trace.author === ME.name).length === 0 && (
+                {sortedTraces.filter((trace) => trace.author === ME.name && trace.kind === selfProfileKind).length === 0 && (
                   <EmptyState message="Your traces will live here when you share them." />
                 )}
               </section>
@@ -478,6 +496,8 @@ const HavenMinimal = () => {
               onReflect={openTraceDetail}
               onOpenProfile={openAuthorProfile}
               formatTime={formatTime}
+              filterKind={otherProfileKind}
+              onChangeFilter={setOtherProfileKind}
             />
           </motion.div>
         )}
@@ -497,7 +517,6 @@ const HavenMinimal = () => {
                 onReflect={() => undefined}
                 onOpenProfile={openAuthorProfile}
                 hideReflect
-                showKindLabel
               />
               <section className="space-y-4">
                 <h3 className="text-sm font-medium uppercase tracking-wide text-neutral-400">
