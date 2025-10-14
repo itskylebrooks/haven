@@ -50,7 +50,7 @@ const TraceCard = ({
           <button
             onClick={(e) => {
               e.stopPropagation()
-              onOpenProfile(trace.author)
+              onOpenProfile(trace.authorUsername || trace.author.toLowerCase())
             }}
             className="font-medium text-neutral-100 transition hover:underline"
           >

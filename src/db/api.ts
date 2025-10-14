@@ -8,20 +8,14 @@ export const CURRENT_USER = 'itskylebrooks'
 const toTrace = (t: DBTrace): Trace => ({
   id: t.id,
   author: usernameToAuthorName(t.author),
+  authorUsername: t.author,
   text: t.text,
   kind: t.kind,
   createdAt: t.createdAt,
   reflections: [],
 })
 
-const authorNameMap: Record<string, string> = {
-  itskylebrooks: 'Kyle Brooks',
-  lena: 'Lena',
-  milo: 'Milo',
-  ava: 'Ava',
-  eli: 'Eli',
-  noah: 'Noah',
-}
+let authorNameMap: Record<string, string> = {}
 
 export const authorToUsername = (author: string) => {
   if (author === 'Kyle Brooks') return 'itskylebrooks'
@@ -32,8 +26,16 @@ export const usernameToAuthorName = (username: string) => {
   return authorNameMap[username.toLowerCase()] ?? username
 }
 
+export const refreshAuthorNameMap = async () => {
+  const users = await db.users.toArray()
+  const next: Record<string, string> = {}
+  for (const u of users) next[u.id.toLowerCase()] = u.name || u.id
+  authorNameMap = next
+}
+
 export const initDB = async (): Promise<void> => {
   await seedIfEmpty()
+  await refreshAuthorNameMap()
   await dedupeTraces()
 }
 
@@ -72,22 +74,29 @@ export const dedupeTraces = async (): Promise<void> => {
 }
 
 export const getStateForUser = async (userId: string): Promise<HavenState> => {
-  const [dbTraces, userResonates, dbReflections, dbConnections] = await Promise.all([
+  const [dbTraces, userResonates, dbReflections, dbConnections, users] = await Promise.all([
     db.traces.orderBy('createdAt').reverse().toArray(),
     db.resonates.where('userId').equals(userId).toArray(),
     db.reflections.toArray(),
     db.connections.where('fromUser').equals(userId).toArray(),
+    db.users.toArray(),
   ])
+
+  const nameMap: Record<string, string> = {}
+  users.forEach(u => { nameMap[u.id.toLowerCase()] = u.name || u.id })
 
   const resonateSet = new Set(userResonates.map((r) => r.traceId))
   const reflectionsByTrace = dbReflections.reduce<Record<string, Reflection[]>>((acc, r) => {
     const list = acc[r.traceId] || (acc[r.traceId] = [])
-    list.push({ id: r.id, author: usernameToAuthorName(r.author), text: r.text, createdAt: r.createdAt })
+    const display = nameMap[r.author.toLowerCase()] ?? r.author
+    list.push({ id: r.id, author: display, text: r.text, createdAt: r.createdAt })
     return acc
   }, {})
 
   const traces: Trace[] = dbTraces.map((t) => ({
     ...toTrace(t),
+    author: nameMap[t.author.toLowerCase()] ?? t.author,
+    authorUsername: t.author,
     resonates: resonateSet.has(t.id),
     reflections: (reflectionsByTrace[t.id] || []).sort((a, b) => a.createdAt - b.createdAt),
   }))

@@ -10,6 +10,7 @@ export type Reflection = {
 export type Trace = {
   id: string
   author: string
+  authorUsername?: string
   text: string
   kind: TraceType
   createdAt: number

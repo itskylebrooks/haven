@@ -16,17 +16,18 @@ const TopBar = ({
   onOpenComposer,
   title,
 }: TopBarProps) => {
-  const showTabs = ['circles', 'signals', 'profile'].includes(mode as string)
+  const showTabs = true
+
+  const activeTab = (['circles', 'signals', 'profile'].includes(mode as string)
+    ? (mode as 'circles' | 'signals' | 'profile')
+    : 'circles')
 
   return (
     <header className="flex h-14 items-center justify-between border-b border-white/5 px-5">
       <span className="text-lg font-semibold tracking-tight text-white">Haven</span>
 
       {showTabs ? (
-        <Tabs
-          activeTab={mode as 'circles' | 'signals' | 'profile'}
-          onSelect={onSelectTab}
-        />
+        <Tabs activeTab={activeTab} onSelect={onSelectTab} />
       ) : (
         <span className="text-sm text-neutral-400">{title}</span>
       )}
