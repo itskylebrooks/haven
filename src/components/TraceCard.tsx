@@ -1,4 +1,4 @@
-import { Heart, MessageCircle } from 'lucide-react'
+import { Sparkles, MessagesSquare } from 'lucide-react'
 import { motion } from 'framer-motion'
 import type { Trace } from '../lib/types'
 import clsx from 'clsx'
@@ -62,7 +62,7 @@ const TraceCard = ({
               transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
               className="flex h-5 w-5 items-center justify-center"
             >
-              <Heart
+              <Sparkles
                 className={clsx(
                   'h-4 w-4',
                   trace.resonates ? 'fill-emerald-500 text-emerald-400' : '',
@@ -77,7 +77,7 @@ const TraceCard = ({
               className="flex items-center gap-1 transition hover:text-white"
               aria-label="Reflect on trace"
             >
-              <MessageCircle className="h-4 w-4" />
+              <MessagesSquare className="h-4 w-4" />
               Reflect
             </button>
           )}

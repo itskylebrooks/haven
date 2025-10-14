@@ -1,4 +1,4 @@
-import { ArrowLeft, Plus } from 'lucide-react'
+import { ArrowLeft, Send } from 'lucide-react'
 import Tabs from './Tabs'
 import type { Mode } from '../lib/types'
 import { motion } from 'framer-motion'
@@ -52,7 +52,7 @@ const TopBar = ({
           className="grid h-8 w-8 place-items-center rounded-full bg-white text-neutral-950 transition hover:bg-white/90"
           aria-label="Compose trace"
         >
-          <Plus className="h-4 w-4" />
+          <Send className="h-4 w-4" />
         </motion.button>
       ) : (
         <div className="h-8 w-8" />
