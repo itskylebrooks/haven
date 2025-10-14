@@ -145,6 +145,13 @@ const HavenMinimal = () => {
 
   const feedTraces = useMemo(() => {
     let list = filterForMode(mode)
+    // In Circles, only show posts from people I am connected to (friends I follow)
+    if (mode === 'circles') {
+      list = list.filter((t) => {
+        const username = (t.authorUsername ?? mapAuthorToUsername(t.author)).toLowerCase()
+        return !!state.connections[username]
+      })
+    }
     // Hide current user's own posts from the general feed (they appear on the profile page)
     if (mode !== 'profile') {
       list = list.filter((t) => mapAuthorToUsername(t.author) !== meUsername)
