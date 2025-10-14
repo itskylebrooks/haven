@@ -1,8 +1,8 @@
 import { Sparkles, MessagesSquare, Trash2 } from 'lucide-react'
-import { motion } from 'framer-motion'
+// Temporarily avoid framer-motion on the card wrapper to prevent
+// mount-time opacity/visibility issues during navigation.
 import type { Trace } from '../lib/types'
 import clsx from 'clsx'
-import { cardTransition } from '../lib/animation'
 
 type TraceCardProps = {
   trace: Trace
@@ -26,12 +26,7 @@ const TraceCard = ({
   canDelete,
 }: TraceCardProps) => {
   return (
-    <motion.article
-      layout
-      initial={cardTransition.initial}
-      animate={cardTransition.animate}
-      transition={cardTransition.animate.transition}
-    >
+    <article>
       <div
         role="button"
         tabIndex={0}
@@ -67,7 +62,7 @@ const TraceCard = ({
         )}
 
         <div className="mt-3 flex gap-4 text-sm text-neutral-400">
-          <motion.button
+          <button
             onClick={(e) => {
               e.stopPropagation()
               onResonate(trace.id)
@@ -75,26 +70,17 @@ const TraceCard = ({
             className="flex items-center gap-1 transition hover:text-white"
             aria-label="Resonate trace"
             aria-pressed={trace.resonates ?? false}
-            whileTap={{ scale: 0.96 }}
           >
-            <motion.span
-              animate={
-                trace.resonates
-                  ? { scale: 1.1, opacity: 1 }
-                  : { scale: 1, opacity: 0.75 }
-              }
-              transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-              className="flex h-5 w-5 items-center justify-center"
-            >
+            <span className="flex h-5 w-5 items-center justify-center" style={{ opacity: trace.resonates ? 1 : 0.75 }}>
               <Sparkles
                 className={clsx(
                   'h-4 w-4',
                   trace.resonates ? 'fill-emerald-500 text-emerald-400' : '',
                 )}
               />
-            </motion.span>
+            </span>
             Resonate
-          </motion.button>
+          </button>
           {!hideReflect && (
             <button
               onClick={(e) => {
@@ -123,7 +109,7 @@ const TraceCard = ({
           )}
         </div>
       </div>
-    </motion.article>
+  </article>
   )
 }
 

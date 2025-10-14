@@ -98,17 +98,17 @@ const HavenMinimal = () => {
           setSelfProfileKind('circle')
         } else {
           setMode('user')
-          setViewUser(username)
+          setViewUser(username.toLowerCase())
           setSelectedTraceId(null)
         }
         return
       }
 
       if (parts.length >= 2) {
-        const id = parts[1]
-        setSelectedTraceId(id)
-        setViewUser(username.toLowerCase() === meUsername ? null : username)
-        setMode('trace')
+    const id = parts[1]
+    setSelectedTraceId(id)
+    setViewUser(username.toLowerCase() === meUsername ? null : username.toLowerCase())
+    setMode('trace')
         return
       }
     },
@@ -162,7 +162,8 @@ const HavenMinimal = () => {
         .filter((t) => (mode === 'circles' ? t.kind === 'circle' : t.kind === 'signal'))
         .sort((a, b) => b.createdAt - a.createdAt)
       // We're in circles|signals here; hide current user's posts from the general feed
-      return fallback.filter((t) => mapAuthorToUsername(t.author) !== meUsername)
+      const fallbackList = fallback.filter((t) => mapAuthorToUsername(t.author) !== meUsername)
+      return fallbackList
     }
     return list
   }, [mode, filterForMode, state.traces, meUsername, mapAuthorToUsername])
@@ -334,7 +335,7 @@ const HavenMinimal = () => {
     }
 
     setReturnMode(mode)
-    setViewUser(mapAuthorToUsername(author))
+    setViewUser(mapAuthorToUsername(author).toLowerCase())
     setMode('user')
     navigate(pathFor('user', { user: mapAuthorToUsername(author) }))
   }
@@ -397,13 +398,13 @@ const HavenMinimal = () => {
   const toggleConnection = async () => {
     if (!viewUser) return
     const username = viewUser.toLowerCase()
-    const willConnect = !state.connections[viewUser]
+    const willConnect = !state.connections[username]
     await dbSetConnection('itskylebrooks', username, willConnect)
     setState((prev) => ({
       ...prev,
       connections: {
         ...prev.connections,
-        [viewUser]: willConnect,
+        [username]: willConnect,
       },
     }))
     // Update counts
@@ -421,7 +422,7 @@ const HavenMinimal = () => {
   // Default profile tab for other users depends on connection
   useEffect(() => {
     if (mode === 'user' && viewUser) {
-      const connected = !!state.connections[viewUser]
+      const connected = !!state.connections[viewUser.toLowerCase()]
       setOtherProfileKind(connected ? 'circle' : 'signal')
     }
   }, [mode, viewUser, state.connections])
@@ -467,7 +468,8 @@ const HavenMinimal = () => {
           {mode === 'circles' && (
             <motion.div
               key="circles"
-              initial={pageVariants.initial}
+              // Avoid mounting pages invisible; don't use the initial variant
+              initial={false}
               animate={pageVariants.animate}
               exit={pageVariants.exit}
             >
@@ -489,7 +491,7 @@ const HavenMinimal = () => {
         {mode === 'signals' && (
           <motion.div
             key="signals"
-            initial={pageVariants.initial}
+            initial={false}
             animate={pageVariants.animate}
             exit={pageVariants.exit}
           >
@@ -511,7 +513,7 @@ const HavenMinimal = () => {
         {mode === 'profile' && meUser && (
           <motion.div
             key="profile"
-            initial={pageVariants.initial}
+            initial={false}
             animate={pageVariants.animate}
             exit={pageVariants.exit}
           >
@@ -564,10 +566,7 @@ const HavenMinimal = () => {
               />
               {/* Edit profile button moved up to the header row */}
               <div className="flex justify-center">
-                <ProfileSwitcher
-                  current={selfProfileKind}
-                  onChange={setSelfProfileKind}
-                />
+                <ProfileSwitcher current={selfProfileKind} onChange={setSelfProfileKind} />
               </div>
               <section className="space-y-4">
                 {sortedTraces
@@ -599,7 +598,7 @@ const HavenMinimal = () => {
         {mode === 'user' && otherUser && (
           <motion.div
             key={`user-${otherUser.name}`}
-            initial={pageVariants.initial}
+            initial={false}
             animate={pageVariants.animate}
             exit={pageVariants.exit}
           >
@@ -612,7 +611,7 @@ const HavenMinimal = () => {
                 signalFollowers: otherUser.signalFollowers ?? 0,
               }}
               traces={otherUserTraces}
-              connected={!!(viewUser && state.connections[viewUser])}
+              connected={!!(viewUser && state.connections[viewUser.toLowerCase()])}
               onConnectToggle={toggleConnection}
               onResonate={handleResonate}
               onReflect={openTraceDetail}
@@ -627,7 +626,7 @@ const HavenMinimal = () => {
         {mode === 'trace' && selectedTrace && (
           <motion.div
             key={`trace-${selectedTrace.id}`}
-            initial={pageVariants.initial}
+            initial={false}
             animate={pageVariants.animate}
             exit={pageVariants.exit}
           >
@@ -711,6 +710,8 @@ const HavenMinimal = () => {
         </AnimatePresence>
       </div>
 
+      
+
       <AnimatePresence>
         {composerOpen && (
           <ComposerModal
@@ -771,7 +772,7 @@ const HavenMinimal = () => {
             onOpenProfile={(username) => {
               setPeopleModal((p) => ({ ...p, open: false }))
               setMode('user')
-              setViewUser(username)
+              setViewUser(username.toLowerCase())
               navigate(`/${username}`)
             }}
             onRemove={async (username) => {
