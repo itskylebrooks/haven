@@ -1,0 +1,82 @@
+import type { Trace } from '../lib/types'
+import ProfileHeader from './ProfileHeader'
+import TraceCard from './TraceCard'
+
+type UserProfileProps = {
+  profile: {
+    name: string
+    handle: string
+    bio: string
+    signalFollowers: number
+    gradientFrom?: string
+    gradientTo?: string
+  }
+  traces: Trace[]
+  connected: boolean
+  onConnectToggle: () => void
+  onResonate: (traceId: string) => void
+  onReflect: (traceId: string) => void
+  onOpenProfile: (author: string) => void
+  formatTime: (createdAt: number) => string
+}
+
+const UserProfile = ({
+  profile,
+  traces,
+  connected,
+  onConnectToggle,
+  onResonate,
+  onReflect,
+  onOpenProfile,
+  formatTime,
+}: UserProfileProps) => {
+  const visibleTraces = traces
+    .filter((trace) => trace.kind === 'signal' || connected)
+    .sort((a, b) => b.createdAt - a.createdAt)
+
+  return (
+    <div className="mx-auto w-full max-w-xl space-y-6 px-4 py-10">
+      <ProfileHeader
+        name={profile.name}
+        handle={profile.handle}
+        bio={profile.bio}
+        variant="other"
+        signals={visibleTraces.filter((trace) => trace.kind === 'signal').length}
+        signalFollowers={profile.signalFollowers}
+        connected={connected}
+        onConnectToggle={onConnectToggle}
+        showConnect
+        gradientFrom={profile.gradientFrom}
+        gradientTo={profile.gradientTo}
+      />
+
+      {connected && (
+        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+          You’re in each other’s Circle now.
+        </div>
+      )}
+
+      <section className="space-y-4">
+        {visibleTraces.length === 0 ? (
+          <p className="rounded-xl border border-white/5 bg-neutral-950/60 p-4 text-sm text-neutral-400">
+            Their signals are resting for now.
+          </p>
+        ) : (
+          visibleTraces.map((trace) => (
+            <TraceCard
+              key={trace.id}
+              trace={trace}
+              timeLabel={formatTime(trace.createdAt)}
+              onResonate={onResonate}
+              onReflect={onReflect}
+              onOpenProfile={onOpenProfile}
+              showKindLabel
+            />
+          ))
+        )}
+      </section>
+    </div>
+  )
+}
+
+export default UserProfile
