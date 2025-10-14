@@ -16,9 +16,10 @@ import type {
   TraceType,
   User,
 } from './lib/types'
-import { loadState, saveState, clearState } from './lib/storage'
+import { clearState } from './lib/storage'
 import { timeAgo, useMinuteTicker } from './lib/time'
 import { pageVariants } from './lib/animation'
+import { initDB, getStateForUser, addTrace as dbAddTrace, addReflection as dbAddReflection, toggleResonate as dbToggleResonate, setConnection as dbSetConnection, saveDraft as dbSaveDraft, loadDraft as dbLoadDraft } from './db/api'
 
 const HOURS = 60 * 60 * 1000
 const MINUTES = 60 * 1000
@@ -170,7 +171,7 @@ const ME: User = {
 }
 
 const HavenMinimal = () => {
-  const [state, setState] = useState<HavenState>(() => loadState(createSeedState()))
+  const [state, setState] = useState<HavenState>({ traces: [], connections: {} })
   const [mode, setMode] = useState<Mode>('circles')
   const [viewUser, setViewUser] = useState<string | null>(null)
   const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null)
@@ -298,9 +299,18 @@ const HavenMinimal = () => {
   )
 
   useEffect(() => {
-    const handle = window.setTimeout(() => saveState(state), 280)
-    return () => window.clearTimeout(handle)
-  }, [state])
+    ;(async () => {
+      await initDB()
+      const snapshot = await getStateForUser('itskylebrooks')
+      setState(snapshot)
+      // load draft for composer
+      const draftDoc = await dbLoadDraft('composer')
+      if (draftDoc) {
+        setDraft(draftDoc.text)
+        setDraftKind(draftDoc.kind)
+      }
+    })()
+  }, [])
 
   // Init + back/forward routing
   useEffect(() => {
@@ -344,6 +354,15 @@ const HavenMinimal = () => {
     return () => window.removeEventListener('keydown', listener)
   }, [composerOpen, mode])
 
+  // Save draft to DB
+  useEffect(() => {
+    if (!composerOpen) return
+    const id = window.setTimeout(() => {
+      dbSaveDraft('composer', draft, draftKind)
+    }, 300)
+    return () => window.clearTimeout(id)
+  }, [composerOpen, draft, draftKind])
+
   const randomId12 = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
     let out = ''
@@ -367,6 +386,7 @@ const HavenMinimal = () => {
       ...prev,
       traces: [newTrace, ...prev.traces],
     }))
+    dbAddTrace(authorToUsername(newTrace.author), newTrace.text, newTrace.kind, newTrace.createdAt, newTrace.id)
     setDraft('')
     setComposerOpen(false)
     if (draftKind === 'signal') {
@@ -376,16 +396,12 @@ const HavenMinimal = () => {
     }
   }
 
-  const handleResonate = (traceId: string) => {
+  const handleResonate = async (traceId: string) => {
+    const on = await dbToggleResonate(traceId, 'itskylebrooks')
     setState((prev) => ({
       ...prev,
       traces: prev.traces.map((trace) =>
-        trace.id === traceId
-          ? {
-              ...trace,
-              resonates: !(trace.resonates ?? false),
-            }
-          : trace,
+        trace.id === traceId ? { ...trace, resonates: on } : trace,
       ),
     }))
   }
@@ -437,6 +453,7 @@ const HavenMinimal = () => {
           : trace,
       ),
     }))
+    dbAddReflection(traceId, authorToUsername(ME.name), newReflection.text, newReflection.createdAt, newReflection.id)
     setReflectionDraft('')
   }
 
@@ -458,13 +475,16 @@ const HavenMinimal = () => {
     window.history.back()
   }
 
-  const toggleConnection = () => {
+  const toggleConnection = async () => {
     if (!viewUser) return
+    const username = authorToUsername(viewUser)
+    const willConnect = !state.connections[viewUser]
+    await dbSetConnection('itskylebrooks', username, willConnect)
     setState((prev) => ({
       ...prev,
       connections: {
         ...prev.connections,
-        [viewUser]: !prev.connections[viewUser],
+        [viewUser]: willConnect,
       },
     }))
   }
