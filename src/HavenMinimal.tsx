@@ -44,7 +44,7 @@ const HavenMinimal = () => {
   const [meUser, setMeUser] = useState<{ name: string; handle: string; bio?: string; circles?: number; signals?: number } | null>(null)
   const [otherUser, setOtherUser] = useState<{ name: string; handle: string; bio?: string; signalFollowers?: number } | null>(null)
   const [meUsername, setMeUsername] = useState('itskylebrooks')
-  const mapAuthorToUsername = useCallback((author: string) => (author === 'You' ? meUsername : author.toLowerCase()), [meUsername])
+  const mapAuthorToUsername = useCallback((author: string) => (author === 'Kyle Brooks' ? meUsername : author.toLowerCase()), [meUsername])
 
   const pathFor = useCallback(
     (m: Mode, opts?: { user?: string; traceId?: string }) => {
@@ -135,13 +135,21 @@ const HavenMinimal = () => {
   )
 
   const feedTraces = useMemo(() => {
-    const list = filterForMode(mode)
-    // Defensive: if list is unexpectedly empty but we have traces, fall back to all
+    let list = filterForMode(mode)
+    // Hide current user's own posts from the general feed (they appear on the profile page)
+    if (mode !== 'profile') {
+      list = list.filter((t) => mapAuthorToUsername(t.author) !== meUsername)
+    }
+    // Defensive: if list is unexpectedly empty but we have traces, fall back to all (respecting the same filter)
     if (list.length === 0 && state.traces.length > 0 && (mode === 'circles' || mode === 'signals')) {
-      return [...state.traces].filter((t) => (mode === 'circles' ? t.kind === 'circle' : t.kind === 'signal')).sort((a, b) => b.createdAt - a.createdAt)
+      const fallback = [...state.traces]
+        .filter((t) => (mode === 'circles' ? t.kind === 'circle' : t.kind === 'signal'))
+        .sort((a, b) => b.createdAt - a.createdAt)
+      // We're in circles|signals here; hide current user's posts from the general feed
+      return fallback.filter((t) => mapAuthorToUsername(t.author) !== meUsername)
     }
     return list
-  }, [mode, filterForMode, state.traces])
+  }, [mode, filterForMode, state.traces, meUsername, mapAuthorToUsername])
 
   const formatTime = useCallback(
     (createdAt: number) => {
@@ -173,7 +181,7 @@ const HavenMinimal = () => {
         const friendsCount = await db.connections.where('fromUser').equals(meUsername).count()
         const followersCount = await db.subscriptions.where('followee').equals(meUsername).count()
         setMeUser({
-          name: me.name,
+          name: usernameToAuthorName(me.id),
           handle: me.handle,
           bio: me.bio,
           circles: friendsCount,
@@ -252,7 +260,7 @@ const HavenMinimal = () => {
 
     const newTrace: Trace = {
       id: randomId12(),
-      author: meUser?.name ?? 'You',
+      author: meUser?.name ?? 'Kyle Brooks',
       text: draft.trim(),
       kind: draftKind,
       createdAt: Date.now(),
@@ -299,7 +307,7 @@ const HavenMinimal = () => {
   // Post editing removed; only deletion is allowed
 
   const openAuthorProfile = (author: string) => {
-    if (author === meUser?.name || author === 'You') {
+    if (author === meUser?.name || author === 'Kyle Brooks') {
       setMode('profile')
       setViewUser(null)
       setSelfProfileKind('circle')
@@ -318,7 +326,7 @@ const HavenMinimal = () => {
 
     const newReflection: Reflection = {
       id: randomId12(),
-      author: meUser?.name ?? 'You',
+      author: meUser?.name ?? 'Kyle Brooks',
       text: reflectionDraft.trim(),
       createdAt: Date.now(),
     }
@@ -551,7 +559,7 @@ const HavenMinimal = () => {
                         await dbDeleteTrace(id)
                         setState((prev) => ({ ...prev, traces: prev.traces.filter((t) => t.id !== id) }))
                       }}
-                      canDelete={trace.author === 'You'}
+                      canDelete={trace.author === 'Kyle Brooks'}
                     />
                   ))}
                 {sortedTraces.filter((trace) => trace.author === meUser.name && trace.kind === selfProfileKind).length === 0 && (
@@ -611,7 +619,7 @@ const HavenMinimal = () => {
                   setState((prev) => ({ ...prev, traces: prev.traces.filter((t) => t.id !== id) }))
                   handleBack()
                 }}
-                canDelete={selectedTrace.author === 'You'}
+                      canDelete={selectedTrace.author === 'Kyle Brooks'}
               />
               <section className="space-y-4">
                 <h3 className="text-sm font-medium uppercase tracking-wide text-neutral-400">

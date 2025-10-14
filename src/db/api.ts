@@ -15,7 +15,7 @@ const toTrace = (t: DBTrace): Trace => ({
 })
 
 const authorNameMap: Record<string, string> = {
-  itskylebrooks: 'You',
+  itskylebrooks: 'Kyle Brooks',
   lena: 'Lena',
   milo: 'Milo',
   ava: 'Ava',
@@ -24,7 +24,7 @@ const authorNameMap: Record<string, string> = {
 }
 
 export const authorToUsername = (author: string) => {
-  if (author === 'You') return 'itskylebrooks'
+  if (author === 'Kyle Brooks') return 'itskylebrooks'
   return author.toLowerCase()
 }
 

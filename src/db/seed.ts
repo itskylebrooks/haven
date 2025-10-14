@@ -18,7 +18,7 @@ export const seedIfEmpty = async () => {
   if (traceCount > 0) return
 
   const users: DBUser[] = [
-    { id: 'itskylebrooks', name: 'You', handle: '@itskylebrooks', bio: 'learning to slow down', circlesCount: 42, signalsCount: 8 },
+    { id: 'itskylebrooks', name: 'Kyle Brooks', handle: '@itskylebrooks', bio: 'learning to slow down', circlesCount: 42, signalsCount: 8 },
     { id: 'lena', name: 'Lena', handle: '@lena', bio: 'photographer of quiet things' },
     { id: 'milo', name: 'Milo', handle: '@milo', bio: 'designer of invisible systems' },
     { id: 'ava', name: 'Ava', handle: '@ava', bio: 'writer and listener' },

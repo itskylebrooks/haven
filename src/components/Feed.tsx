@@ -34,7 +34,7 @@ const Feed = ({
           onReflect={onReflect}
           onOpenProfile={onOpenProfile}
           onDelete={onDelete}
-          canDelete={trace.author === 'You'}
+          canDelete={trace.author === 'Kyle Brooks'}
         />
       ))
     )}
