@@ -50,8 +50,8 @@ const HavenMinimal = () => {
     kind: 'friends' | 'followers'
   }>({ open: false, title: '', list: [], kind: 'friends' })
   const minuteTicker = useMinuteTicker()
-  const [meUser, setMeUser] = useState<{ name: string; handle: string; bio?: string; circles?: number; signals?: number } | null>(null)
-  const [otherUser, setOtherUser] = useState<{ name: string; handle: string; bio?: string; signalFollowers?: number } | null>(null)
+  const [meUser, setMeUser] = useState<{ name: string; handle: string; bio?: string; avatar?: string | null; circles?: number; signals?: number } | null>(null)
+  const [otherUser, setOtherUser] = useState<{ name: string; handle: string; bio?: string; avatar?: string | null; signalFollowers?: number } | null>(null)
   const [meUsername, setMeUsername] = useState('itskylebrooks')
   const mapAuthorToUsername = useCallback((author: string) => (author === 'Kyle Brooks' ? meUsername : author.toLowerCase()), [meUsername])
 
@@ -193,6 +193,7 @@ const HavenMinimal = () => {
           name: usernameToAuthorName(me.id),
           handle: me.handle,
           bio: me.bio,
+          avatar: me.avatar ?? null,
           circles: friendsCount,
           signals: followersCount,
         })
@@ -377,7 +378,7 @@ const HavenMinimal = () => {
       const u = await db.users.get(viewUser.toLowerCase())
       if (u) {
         const followersCount = await db.subscriptions.where('followee').equals(viewUser.toLowerCase()).count()
-        setOtherUser({ name: u.name, handle: u.handle, bio: u.bio, signalFollowers: followersCount })
+        setOtherUser({ name: u.name, handle: u.handle, bio: u.bio, avatar: u.avatar ?? null, signalFollowers: followersCount })
       } else setOtherUser(null)
     })()
   }, [viewUser])
@@ -527,6 +528,7 @@ const HavenMinimal = () => {
                 name={meUser.name}
                 handle={meUser.handle}
                 bio={meUser.bio ?? ''}
+                avatar={meUser.avatar ?? null}
                 variant="self"
                 circles={meUser.circles ?? 0}
                 signals={meUser.signals ?? 0}
@@ -595,6 +597,7 @@ const HavenMinimal = () => {
                 name: otherUser.name,
                 handle: otherUser.handle,
                 bio: otherUser.bio ?? '',
+                avatar: otherUser.avatar ?? null,
                 signalFollowers: otherUser.signalFollowers ?? 0,
               }}
               traces={otherUserTraces}
@@ -722,8 +725,9 @@ const HavenMinimal = () => {
             name={meUser.name}
             bio={meUser.bio}
             username={meUsername}
+            avatar={meUser.avatar ?? null}
             onClose={() => setEditProfileOpen(false)}
-            onSave={async (name, bio, username) => {
+            onSave={async (name, bio, username, avatar) => {
               const { updateUserProfile } = await import('./db/api')
               if (username !== meUsername) {
                 try {
@@ -734,8 +738,8 @@ const HavenMinimal = () => {
                   return
                 }
               }
-              await updateUserProfile(username, { name, bio })
-              setMeUser((prev) => (prev ? { ...prev, name, bio, handle: `@${username}` } : prev))
+              await updateUserProfile(username, { name, bio, avatar: avatar ?? undefined })
+              setMeUser((prev) => (prev ? { ...prev, name, bio, avatar: avatar ?? null, handle: `@${username}` } : prev))
               setEditProfileOpen(false)
               // if on profile route, update URL
               if (mode === 'profile') {

@@ -7,14 +7,16 @@ type EditProfileModalProps = {
   name: string
   bio?: string
   username: string
+  avatar?: string | null
   onClose: () => void
-  onSave: (name: string, bio: string, username: string) => void
+  onSave: (name: string, bio: string, username: string, avatar?: string | null) => void
 }
 
-const EditProfileModal = ({ isOpen, name, bio, username, onClose, onSave }: EditProfileModalProps) => {
+const EditProfileModal = ({ isOpen, name, bio, username, avatar, onClose, onSave }: EditProfileModalProps) => {
   const [draftName, setDraftName] = useState(name)
   const [draftBio, setDraftBio] = useState(bio ?? '')
   const [draftUsername, setDraftUsername] = useState(username)
+  const [draftAvatar, setDraftAvatar] = useState<string | null>(avatar ?? null)
   const nameRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
@@ -22,9 +24,10 @@ const EditProfileModal = ({ isOpen, name, bio, username, onClose, onSave }: Edit
       setDraftName(name)
       setDraftBio(bio ?? '')
       setDraftUsername(username)
+      setDraftAvatar(avatar ?? null)
       setTimeout(() => nameRef.current?.focus(), 10)
     }
-  }, [isOpen, name, bio, username])
+  }, [isOpen, name, bio, username, avatar])
 
   if (!isOpen) return null
 
@@ -43,6 +46,46 @@ const EditProfileModal = ({ isOpen, name, bio, username, onClose, onSave }: Edit
       >
         <h3 className="text-lg font-semibold text-white">Edit Profile</h3>
         <div className="space-y-3">
+          <div>
+            <label className="mb-1 block text-sm text-neutral-400">Avatar</label>
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-neutral-800">
+                {draftAvatar ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={draftAvatar} alt="Avatar preview" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="text-neutral-500 text-[10px]">No image</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="cursor-pointer rounded-md border border-white/10 px-3 py-1.5 text-sm text-neutral-200 transition hover:bg-white/10">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (!file) return
+                      const reader = new FileReader()
+                      reader.onload = () => setDraftAvatar(reader.result as string)
+                      reader.readAsDataURL(file)
+                    }}
+                  />
+                  Upload
+                </label>
+                {draftAvatar && (
+                  <button
+                    type="button"
+                    onClick={() => setDraftAvatar(null)}
+                    className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-neutral-300 transition hover:bg-white/10"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            </div>
+            <p className="mt-1 text-xs text-neutral-500">If not set, a default icon shows.</p>
+          </div>
           <div>
             <label className="mb-1 block text-sm text-neutral-400">Name</label>
             <input
@@ -75,7 +118,7 @@ const EditProfileModal = ({ isOpen, name, bio, username, onClose, onSave }: Edit
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className="text-sm text-neutral-400 hover:text-white">Cancel</button>
           <button
-            onClick={() => onSave(draftName.trim(), draftBio.trim(), draftUsername.trim())}
+            onClick={() => onSave(draftName.trim(), draftBio.trim(), draftUsername.trim(), draftAvatar)}
             className="rounded-md bg-white px-4 py-1.5 text-sm font-medium text-neutral-900 hover:bg-white/80"
           >
             Save

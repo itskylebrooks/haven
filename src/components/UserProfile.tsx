@@ -8,6 +8,7 @@ type UserProfileProps = {
     name: string
     handle: string
     bio: string
+    avatar?: string | null
     signalFollowers: number
     gradientFrom?: string
     gradientTo?: string
@@ -55,6 +56,7 @@ const UserProfile = ({
         name={profile.name}
         handle={profile.handle}
         bio={profile.bio}
+        avatar={profile.avatar}
         variant="other"
         signals={visibleTraces.filter((trace) => trace.kind === 'signal').length}
         signalFollowers={profile.signalFollowers}

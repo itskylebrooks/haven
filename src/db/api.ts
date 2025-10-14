@@ -252,7 +252,7 @@ export const changeUsername = async (oldUsername: string, newUsername: string) =
   }
 }
 
-export const updateUserProfile = async (username: string, updates: { name?: string; bio?: string }) => {
+export const updateUserProfile = async (username: string, updates: { name?: string; bio?: string; avatar?: string }) => {
   const user = await db.users.get(username)
   if (!user) throw new Error('User not found')
   await db.users.update(username, updates)

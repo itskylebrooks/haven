@@ -1,9 +1,10 @@
-import { Radio, Users } from 'lucide-react'
+import { Radio, Users, VenetianMask } from 'lucide-react'
 
 type ProfileHeaderProps = {
   name: string
   handle: string
   bio: string
+  avatar?: string | null
   variant: 'self' | 'other'
   circles?: number
   signals?: number
@@ -21,6 +22,7 @@ const ProfileHeader = ({
   name,
   handle,
   bio,
+  avatar,
   variant,
   circles,
   signals,
@@ -34,9 +36,16 @@ const ProfileHeader = ({
   onShowFollowers,
 }: ProfileHeaderProps) => (
   <div className="space-y-3 text-center">
-    <div
-      className={`mx-auto mb-3 h-20 w-20 rounded-full bg-gradient-to-tr ${gradientFrom} ${gradientTo}`}
-    />
+    <div className={`mx-auto mb-3 h-20 w-20 overflow-hidden rounded-full border border-white/10 ${avatar ? 'bg-neutral-900' : 'bg-neutral-800'}`}>
+      {avatar ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={avatar} alt="Avatar" className="h-full w-full object-cover" />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center text-neutral-200/90">
+          <VenetianMask className="h-8 w-8" />
+        </div>
+      )}
+    </div>
     <div>
       <p className="text-xs uppercase tracking-[0.2em] text-neutral-500">
         {handle}
