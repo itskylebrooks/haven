@@ -8,171 +8,18 @@ import ProfileHeader from './components/ProfileHeader'
 import TraceCard from './components/TraceCard'
 import EmptyState from './components/EmptyState'
 import ProfileSwitcher from './components/profile/ProfileSwitcher'
-import type {
-  HavenState,
-  Mode,
-  Reflection,
-  Trace,
-  TraceType,
-  User,
-} from './lib/types'
-import { clearState } from './lib/storage'
+import type { HavenState, Mode, Reflection, Trace, TraceType } from './lib/types'
+// storage local state not used; DB handles persistence
 import { timeAgo, useMinuteTicker } from './lib/time'
 import { pageVariants } from './lib/animation'
-import { initDB, getStateForUser, addTrace as dbAddTrace, addReflection as dbAddReflection, toggleResonate as dbToggleResonate, setConnection as dbSetConnection, saveDraft as dbSaveDraft, loadDraft as dbLoadDraft } from './db/api'
+import { initDB, getStateForUser, addTrace as dbAddTrace, addReflection as dbAddReflection, toggleResonate as dbToggleResonate, setConnection as dbSetConnection, saveDraft as dbSaveDraft, loadDraft as dbLoadDraft, authorToUsername, usernameToAuthorName } from './db/api'
 
-const HOURS = 60 * 60 * 1000
-const MINUTES = 60 * 1000
-
-type SeedTrace = {
-  author: string
-  text: string
-  kind: TraceType
-  offset: number
-  reflections?: { author: string; text: string; offset: number }[]
-}
-
-const SEED_TRACES_TEMPLATE: SeedTrace[] = [
-  {
-    author: 'Lena',
-    text: 'Stillness teaches what noise hides.',
-    kind: 'circle',
-    offset: 2 * HOURS,
-    reflections: [
-      {
-        author: 'Ava',
-        text: 'Saving this line for when the city gets loud.',
-        offset: 90 * MINUTES,
-      },
-    ],
-  },
-  {
-    author: 'Milo',
-    text: 'Design is how silence looks when it’s visual.',
-    kind: 'signal',
-    offset: 5 * HOURS,
-  },
-  {
-    author: 'Ava',
-    text: 'Every morning is a soft reset.',
-    kind: 'circle',
-    offset: 8 * HOURS,
-  },
-  {
-    author: 'Eli',
-    text: 'Silence is a tool, not a void.',
-    kind: 'signal',
-    offset: 24 * HOURS,
-  },
-  {
-    author: 'Noah',
-    text: 'Small conversations are where meaning hides.',
-    kind: 'circle',
-    offset: 48 * HOURS,
-  },
-  {
-    author: 'You',
-    text: 'Pausing to notice who I miss.',
-    kind: 'circle',
-    offset: 3 * HOURS,
-  },
-  {
-    author: 'You',
-    text: 'Letting signals be invitations, not interruptions.',
-    kind: 'signal',
-    offset: 12 * HOURS,
-  },
-]
-
-const createSeedState = (): HavenState => {
-  const now = Date.now()
-
-  const rand = () => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
-    let out = ''
-    for (let i = 0; i < 12; i++) out += chars[Math.floor(Math.random() * chars.length)]
-    return out
-  }
-
-  const traces: Trace[] = SEED_TRACES_TEMPLATE.map((template) => {
-    const reflections: Reflection[] =
-      template.reflections?.map((reflection) => ({
-        id: rand(),
-        author: reflection.author,
-        text: reflection.text,
-        createdAt: now - reflection.offset,
-      })) ?? []
-
-    return {
-      id: rand(),
-      author: template.author,
-      text: template.text,
-      kind: template.kind,
-      createdAt: now - template.offset,
-      reflections,
-    }
-  })
-
-  return {
-    traces,
-    connections: {},
-  }
-}
-
-const OTHER_PROFILES = {
-  Lena: {
-    name: 'Lena',
-    handle: '@lena',
-    bio: 'photographer of quiet things',
-    signalFollowers: 128,
-    gradientFrom: 'from-rose-400/30',
-    gradientTo: 'to-amber-400/30',
-  },
-  Milo: {
-    name: 'Milo',
-    handle: '@milo',
-    bio: 'designer of invisible systems',
-    signalFollowers: 204,
-    gradientFrom: 'from-sky-400/30',
-    gradientTo: 'to-purple-500/30',
-  },
-  Ava: {
-    name: 'Ava',
-    handle: '@ava',
-    bio: 'writer and listener',
-    signalFollowers: 176,
-    gradientFrom: 'from-violet-400/30',
-    gradientTo: 'to-blue-500/30',
-  },
-  Eli: {
-    name: 'Eli',
-    handle: '@eli',
-    bio: 'sound engineer of silent rooms',
-    signalFollowers: 96,
-    gradientFrom: 'from-emerald-400/30',
-    gradientTo: 'to-teal-400/30',
-  },
-  Noah: {
-    name: 'Noah',
-    handle: '@noah',
-    bio: 'curating small, steady communities',
-    signalFollowers: 143,
-    gradientFrom: 'from-amber-400/30',
-    gradientTo: 'to-emerald-400/30',
-  },
-} as const
-
-const ME: User = {
-  name: 'You',
-  handle: '@itskylebrooks',
-  bio: 'learning to slow down',
-  circles: 42,
-  signals: 8,
-}
+// Hardcoded seeds removed in favor of DB
 
 const HavenMinimal = () => {
   const [state, setState] = useState<HavenState>({ traces: [], connections: {} })
   const [mode, setMode] = useState<Mode>('circles')
+  // viewUser stores a username when viewing other user
   const [viewUser, setViewUser] = useState<string | null>(null)
   const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null)
   const [composerOpen, setComposerOpen] = useState(false)
@@ -183,21 +30,9 @@ const HavenMinimal = () => {
   const [selfProfileKind, setSelfProfileKind] = useState<TraceType>('circle')
   const [otherProfileKind, setOtherProfileKind] = useState<TraceType>('signal')
   const minuteTicker = useMinuteTicker()
-
-  // Router helpers
+  const [meUser, setMeUser] = useState<{ name: string; handle: string; bio?: string; circles?: number; signals?: number } | null>(null)
+  const [otherUser, setOtherUser] = useState<{ name: string; handle: string; bio?: string } | null>(null)
   const meUsername = 'itskylebrooks'
-
-  const authorToUsername = useCallback((author: string) => {
-    return author === ME.name ? meUsername : author.toLowerCase()
-  }, [])
-
-  const usernameToAuthor = useCallback((username: string) => {
-    if (username.toLowerCase() === meUsername) return ME.name
-    const found = Object.values(OTHER_PROFILES).find(
-      (p) => p.handle.slice(1).toLowerCase() === username.toLowerCase(),
-    )
-    return found?.name ?? username
-  }, [])
 
   const pathFor = useCallback(
     (m: Mode, opts?: { user?: string; traceId?: string }) => {
@@ -242,7 +77,7 @@ const HavenMinimal = () => {
           setSelfProfileKind('circle')
         } else {
           setMode('user')
-          setViewUser(usernameToAuthor(username))
+          setViewUser(username)
           setSelectedTraceId(null)
         }
         return
@@ -250,14 +85,13 @@ const HavenMinimal = () => {
 
       if (parts.length >= 2) {
         const id = parts[1]
-        const author = usernameToAuthor(username)
         setSelectedTraceId(id)
-        setViewUser(author === ME.name ? null : author)
+        setViewUser(username.toLowerCase() === meUsername ? null : username)
         setMode('trace')
         return
       }
     },
-    [usernameToAuthor],
+    [],
   )
 
   const navigate = useCallback(
@@ -301,9 +135,21 @@ const HavenMinimal = () => {
   useEffect(() => {
     ;(async () => {
       await initDB()
-      const snapshot = await getStateForUser('itskylebrooks')
+      const snapshot = await getStateForUser(meUsername)
       setState(snapshot)
-      // load draft for composer
+      // load me user
+      const { db } = await import('./db/dexie')
+      const me = await db.users.get(meUsername)
+      if (me) {
+        setMeUser({
+          name: me.name,
+          handle: me.handle,
+          bio: me.bio,
+          circles: me.circlesCount,
+          signals: me.signalsCount,
+        })
+      }
+      // load composer draft
       const draftDoc = await dbLoadDraft('composer')
       if (draftDoc) {
         setDraft(draftDoc.text)
@@ -375,7 +221,7 @@ const HavenMinimal = () => {
 
     const newTrace: Trace = {
       id: randomId12(),
-      author: ME.name,
+      author: meUser?.name ?? 'You',
       text: draft.trim(),
       kind: draftKind,
       createdAt: Date.now(),
@@ -418,7 +264,7 @@ const HavenMinimal = () => {
   }
 
   const openAuthorProfile = (author: string) => {
-    if (author === ME.name) {
+    if (author === meUser?.name || author === 'You') {
       setMode('profile')
       setViewUser(null)
       setSelfProfileKind('circle')
@@ -427,7 +273,7 @@ const HavenMinimal = () => {
     }
 
     setReturnMode(mode)
-    setViewUser(author)
+    setViewUser(authorToUsername(author))
     setMode('user')
     navigate(pathFor('user', { user: authorToUsername(author) }))
   }
@@ -437,7 +283,7 @@ const HavenMinimal = () => {
 
     const newReflection: Reflection = {
       id: randomId12(),
-      author: ME.name,
+      author: meUser?.name ?? 'You',
       text: reflectionDraft.trim(),
       createdAt: Date.now(),
     }
@@ -453,7 +299,7 @@ const HavenMinimal = () => {
           : trace,
       ),
     }))
-    dbAddReflection(traceId, authorToUsername(ME.name), newReflection.text, newReflection.createdAt, newReflection.id)
+    dbAddReflection(traceId, meUsername, newReflection.text, newReflection.createdAt, newReflection.id)
     setReflectionDraft('')
   }
 
@@ -461,15 +307,25 @@ const HavenMinimal = () => {
     ? state.traces.find((trace) => trace.id === selectedTraceId) ?? null
     : null
 
-  const otherProfileData =
-    viewUser && viewUser in OTHER_PROFILES ? OTHER_PROFILES[viewUser as keyof typeof OTHER_PROFILES] : null
-
   const otherUserTraces = useMemo(() => {
-    if (!viewUser) {
-      return []
-    }
-    return sortedTraces.filter((trace) => trace.author === viewUser)
+    if (!viewUser) return []
+    const display = usernameToAuthorName(viewUser)
+    return sortedTraces.filter((trace) => trace.author === display)
   }, [sortedTraces, viewUser])
+
+  // Load other user's profile when viewUser changes
+  useEffect(() => {
+    ;(async () => {
+      if (!viewUser) {
+        setOtherUser(null)
+        return
+      }
+      const { db } = await import('./db/dexie')
+      const u = await db.users.get(viewUser.toLowerCase())
+      if (u) setOtherUser({ name: u.name, handle: u.handle, bio: u.bio })
+      else setOtherUser(null)
+    })()
+  }, [viewUser])
 
   const handleBack = () => {
     window.history.back()
@@ -477,7 +333,7 @@ const HavenMinimal = () => {
 
   const toggleConnection = async () => {
     if (!viewUser) return
-    const username = authorToUsername(viewUser)
+    const username = viewUser.toLowerCase()
     const willConnect = !state.connections[viewUser]
     await dbSetConnection('itskylebrooks', username, willConnect)
     setState((prev) => ({
@@ -497,9 +353,12 @@ const HavenMinimal = () => {
     }
   }, [mode, viewUser, state.connections])
 
-  const resetDemoData = () => {
-    clearState()
-    setState(createSeedState())
+  const resetDemoData = async () => {
+    const { db } = await import('./db/dexie')
+    await db.delete()
+    await initDB()
+    const snapshot = await getStateForUser(meUsername)
+    setState(snapshot)
   }
 
   const canGoBack = mode === 'user' || mode === 'trace'
@@ -525,7 +384,7 @@ const HavenMinimal = () => {
           navigate(pathFor(tab))
         }}
         onOpenComposer={() => setComposerOpen(true)}
-        title={mode === 'user' ? viewUser : mode === 'trace' ? 'Trace' : undefined}
+        title={mode === 'user' ? otherUser?.name ?? '' : mode === 'trace' ? 'Trace' : undefined}
       />
 
       <div className="flex-1">
@@ -566,7 +425,7 @@ const HavenMinimal = () => {
           </motion.div>
         )}
 
-        {mode === 'profile' && (
+        {mode === 'profile' && meUser && (
           <motion.div
             key="profile"
             initial={pageVariants.initial}
@@ -575,12 +434,12 @@ const HavenMinimal = () => {
           >
             <div className="mx-auto w-full max-w-xl space-y-8 px-4 py-10">
               <ProfileHeader
-                name={ME.name}
-                handle={ME.handle}
-                bio={ME.bio}
+                name={meUser.name}
+                handle={meUser.handle}
+                bio={meUser.bio ?? ''}
                 variant="self"
-                circles={ME.circles}
-                signals={ME.signals}
+                circles={meUser.circles ?? 0}
+                signals={meUser.signals ?? 0}
               />
               <div className="flex justify-center">
                 <ProfileSwitcher
@@ -590,7 +449,7 @@ const HavenMinimal = () => {
               </div>
               <section className="space-y-4">
                 {sortedTraces
-                  .filter((trace) => trace.author === ME.name)
+                  .filter((trace) => trace.author === meUser.name)
                   .filter((trace) => trace.kind === selfProfileKind)
                   .map((trace) => (
                     <TraceCard
@@ -602,7 +461,7 @@ const HavenMinimal = () => {
                       onOpenProfile={openAuthorProfile}
                     />
                   ))}
-                {sortedTraces.filter((trace) => trace.author === ME.name && trace.kind === selfProfileKind).length === 0 && (
+                {sortedTraces.filter((trace) => trace.author === meUser.name && trace.kind === selfProfileKind).length === 0 && (
                   <EmptyState message="Your traces will live here when you share them." />
                 )}
               </section>
@@ -610,17 +469,22 @@ const HavenMinimal = () => {
           </motion.div>
         )}
 
-        {mode === 'user' && otherProfileData && (
+        {mode === 'user' && otherUser && (
           <motion.div
-            key={`user-${otherProfileData.name}`}
+            key={`user-${otherUser.name}`}
             initial={pageVariants.initial}
             animate={pageVariants.animate}
             exit={pageVariants.exit}
           >
             <UserProfile
-              profile={otherProfileData}
+              profile={{
+                name: otherUser.name,
+                handle: otherUser.handle,
+                bio: otherUser.bio ?? '',
+                signalFollowers: 0,
+              }}
               traces={otherUserTraces}
-              connected={!!state.connections[otherProfileData.name]}
+              connected={!!(viewUser && state.connections[viewUser])}
               onConnectToggle={toggleConnection}
               onResonate={handleResonate}
               onReflect={openTraceDetail}

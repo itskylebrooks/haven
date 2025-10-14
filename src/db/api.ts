@@ -58,7 +58,7 @@ export const getStateForUser = async (userId: string): Promise<HavenState> => {
   }))
 
   const connections: HavenState['connections'] = {}
-  dbConnections.forEach((c) => (connections[usernameToAuthorName(c.toUser)] = true))
+  dbConnections.forEach((c) => (connections[c.toUser] = true))
 
   return { traces, connections }
 }
@@ -129,4 +129,3 @@ export const getSetting = async <T = unknown>(key: string): Promise<T | undefine
   const item = await db.settings.get(key)
   return item?.value as T | undefined
 }
-
