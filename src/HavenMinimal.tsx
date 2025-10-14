@@ -86,17 +86,24 @@ const SEED_TRACES_TEMPLATE: SeedTrace[] = [
 const createSeedState = (): HavenState => {
   const now = Date.now()
 
-  const traces: Trace[] = SEED_TRACES_TEMPLATE.map((template, index) => {
+  const rand = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+    let out = ''
+    for (let i = 0; i < 12; i++) out += chars[Math.floor(Math.random() * chars.length)]
+    return out
+  }
+
+  const traces: Trace[] = SEED_TRACES_TEMPLATE.map((template) => {
     const reflections: Reflection[] =
-      template.reflections?.map((reflection, reflectionIndex) => ({
-        id: `seed-reflection-${index}-${reflectionIndex}`,
+      template.reflections?.map((reflection) => ({
+        id: rand(),
         author: reflection.author,
         text: reflection.text,
         createdAt: now - reflection.offset,
       })) ?? []
 
     return {
-      id: `seed-trace-${index}`,
+      id: rand(),
       author: template.author,
       text: template.text,
       kind: template.kind,
@@ -156,7 +163,7 @@ const OTHER_PROFILES = {
 
 const ME: User = {
   name: 'You',
-  handle: '@you',
+  handle: '@itskylebrooks',
   bio: 'learning to slow down',
   circles: 42,
   signals: 8,
@@ -175,6 +182,92 @@ const HavenMinimal = () => {
   const [selfProfileKind, setSelfProfileKind] = useState<TraceType>('circle')
   const [otherProfileKind, setOtherProfileKind] = useState<TraceType>('signal')
   const minuteTicker = useMinuteTicker()
+
+  // Router helpers
+  const meUsername = 'itskylebrooks'
+
+  const authorToUsername = useCallback((author: string) => {
+    return author === ME.name ? meUsername : author.toLowerCase()
+  }, [])
+
+  const usernameToAuthor = useCallback((username: string) => {
+    if (username.toLowerCase() === meUsername) return ME.name
+    const found = Object.values(OTHER_PROFILES).find(
+      (p) => p.handle.slice(1).toLowerCase() === username.toLowerCase(),
+    )
+    return found?.name ?? username
+  }, [])
+
+  const pathFor = useCallback(
+    (m: Mode, opts?: { user?: string; traceId?: string }) => {
+      switch (m) {
+        case 'circles':
+          return '/circles'
+        case 'signals':
+          return '/signals'
+        case 'profile':
+          return `/${meUsername}`
+        case 'user':
+          return `/${(opts?.user ?? '').toLowerCase()}`
+        case 'trace':
+          return `/${(opts?.user ?? '').toLowerCase()}/${opts?.traceId ?? ''}`
+      }
+    },
+    [],
+  )
+
+  const applyRoute = useCallback(
+    (pathname: string) => {
+      const parts = pathname.replace(/^\/+/, '').split('/')
+      if (parts[0] === '' || parts[0] === 'circles') {
+        setMode('circles')
+        setViewUser(null)
+        setSelectedTraceId(null)
+        return
+      }
+      if (parts[0] === 'signals') {
+        setMode('signals')
+        setViewUser(null)
+        setSelectedTraceId(null)
+        return
+      }
+
+      const username = decodeURIComponent(parts[0])
+      if (parts.length === 1) {
+        if (username.toLowerCase() === meUsername) {
+          setMode('profile')
+          setViewUser(null)
+          setSelectedTraceId(null)
+          setSelfProfileKind('circle')
+        } else {
+          setMode('user')
+          setViewUser(usernameToAuthor(username))
+          setSelectedTraceId(null)
+        }
+        return
+      }
+
+      if (parts.length >= 2) {
+        const id = parts[1]
+        const author = usernameToAuthor(username)
+        setSelectedTraceId(id)
+        setViewUser(author === ME.name ? null : author)
+        setMode('trace')
+        return
+      }
+    },
+    [usernameToAuthor],
+  )
+
+  const navigate = useCallback(
+    (path: string) => {
+      if (window.location.pathname !== path) {
+        window.history.pushState({}, '', path)
+        applyRoute(path)
+      }
+    },
+    [applyRoute],
+  )
 
   const sortedTraces = useMemo(
     () => [...state.traces].sort((a, b) => b.createdAt - a.createdAt),
@@ -209,6 +302,21 @@ const HavenMinimal = () => {
     return () => window.clearTimeout(handle)
   }, [state])
 
+  // Init + back/forward routing
+  useEffect(() => {
+    const current = window.location.pathname
+    if (current === '/' || current === '') {
+      // default to circles
+      window.history.replaceState({}, '', '/circles')
+      applyRoute('/circles')
+    } else {
+      applyRoute(current)
+    }
+
+    const onPop = () => applyRoute(window.location.pathname)
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [applyRoute])
   useEffect(() => {
     const listener = (event: KeyboardEvent) => {
       if (event.key.toLowerCase() === 'c' && !composerOpen) {
@@ -236,14 +344,18 @@ const HavenMinimal = () => {
     return () => window.removeEventListener('keydown', listener)
   }, [composerOpen, mode])
 
+  const randomId12 = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+    let out = ''
+    for (let i = 0; i < 12; i++) out += chars[Math.floor(Math.random() * chars.length)]
+    return out
+  }
+
   const handleCreateTrace = () => {
     if (!draft.trim()) return
 
     const newTrace: Trace = {
-      id:
-        typeof crypto !== 'undefined' && 'randomUUID' in crypto
-          ? crypto.randomUUID()
-          : `trace-${Date.now()}`,
+      id: randomId12(),
       author: ME.name,
       text: draft.trim(),
       kind: draftKind,
@@ -283,6 +395,10 @@ const HavenMinimal = () => {
     setSelectedTraceId(traceId)
     setMode('trace')
     setReflectionDraft('')
+    const t = state.traces.find((x) => x.id === traceId)
+    if (t) {
+      navigate(pathFor('trace', { user: authorToUsername(t.author), traceId }))
+    }
   }
 
   const openAuthorProfile = (author: string) => {
@@ -290,22 +406,21 @@ const HavenMinimal = () => {
       setMode('profile')
       setViewUser(null)
       setSelfProfileKind('circle')
+      navigate(pathFor('profile'))
       return
     }
 
     setReturnMode(mode)
     setViewUser(author)
     setMode('user')
+    navigate(pathFor('user', { user: authorToUsername(author) }))
   }
 
   const addReflection = (traceId: string) => {
     if (!reflectionDraft.trim()) return
 
     const newReflection: Reflection = {
-      id:
-        typeof crypto !== 'undefined' && 'randomUUID' in crypto
-          ? crypto.randomUUID()
-          : `reflection-${Date.now()}`,
+      id: randomId12(),
       author: ME.name,
       text: reflectionDraft.trim(),
       createdAt: Date.now(),
@@ -340,13 +455,7 @@ const HavenMinimal = () => {
   }, [sortedTraces, viewUser])
 
   const handleBack = () => {
-    const destination = returnMode
-    setMode(destination)
-    if (destination !== 'user') {
-      setViewUser(null)
-    }
-    setSelectedTraceId(null)
-    setReturnMode('circles')
+    window.history.back()
   }
 
   const toggleConnection = () => {
@@ -393,6 +502,7 @@ const HavenMinimal = () => {
           setMode(tab)
           setViewUser(null)
           setSelectedTraceId(null)
+          navigate(pathFor(tab))
         }}
         onOpenComposer={() => setComposerOpen(true)}
         title={mode === 'user' ? viewUser : mode === 'trace' ? 'Trace' : undefined}
