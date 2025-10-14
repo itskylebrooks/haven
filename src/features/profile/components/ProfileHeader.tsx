@@ -12,8 +12,6 @@ type ProfileHeaderProps = {
   connected?: boolean
   onConnectToggle?: () => void
   showConnect?: boolean
-  gradientFrom?: string
-  gradientTo?: string
   onShowFriends?: () => void
   onShowFollowers?: () => void
 }
@@ -30,8 +28,7 @@ const ProfileHeader = ({
   connected,
   onConnectToggle,
   showConnect,
-  gradientFrom = 'from-amber-400/30',
-  gradientTo = 'to-purple-500/30',
+
   onShowFriends,
   onShowFollowers,
 }: ProfileHeaderProps) => (
@@ -53,8 +50,7 @@ const ProfileHeader = ({
       <h2 className="text-xl font-semibold text-white">{name}</h2>
     </div>
     <p className="text-sm text-neutral-400">{bio}</p>
-
-      {variant === 'self' ? (
+    {variant === 'self' ? (
       <div className="flex justify-center gap-4 text-sm text-neutral-400">
         <button
           onClick={onShowFriends}

@@ -1,4 +1,4 @@
-import type { Mode } from '../lib/types'
+import type { Mode } from '../../../lib/types'
 
 type TabKey = Extract<Mode, 'circles' | 'signals' | 'profile'>
 

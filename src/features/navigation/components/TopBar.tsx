@@ -1,7 +1,7 @@
 import { Send } from 'lucide-react'
-import Tabs from './Tabs'
-import type { Mode } from '../lib/types'
 import { motion } from 'framer-motion'
+import Tabs from './Tabs'
+import type { Mode } from '../../../lib/types'
 
 type TopBarProps = {
   mode: Mode

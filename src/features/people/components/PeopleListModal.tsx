@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { modalVariants } from '../lib/animation'
+import { modalVariants } from '../../../lib/animation'
 
 type Person = { id: string; name: string; handle: string }
 

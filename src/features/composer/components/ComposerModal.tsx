@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
-import type { TraceType } from '../lib/types'
-import { modalVariants } from '../lib/animation'
+import type { TraceType } from '../../../lib/types'
+import { modalVariants } from '../../../lib/animation'
 
 type ComposerModalProps = {
   isOpen: boolean

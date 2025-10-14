@@ -1,24 +1,41 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import TopBar from './components/TopBar'
-import Feed from './components/Feed'
-import ComposerModal from './components/ComposerModal'
-import UserProfile from './components/UserProfile'
-import ProfileHeader from './components/ProfileHeader'
-import TraceCard from './components/TraceCard'
-import EmptyState from './components/EmptyState'
-import ProfileSwitcher from './components/profile/ProfileSwitcher'
-import EditProfileModal from './components/EditProfileModal'
-import PeopleListModal from './components/PeopleListModal'
-import type { HavenState, Mode, Reflection, Trace, TraceType } from './lib/types'
-// storage local state not used; DB handles persistence
-import { timeAgo, useMinuteTicker } from './lib/time'
-import { pageVariants } from './lib/animation'
-import { initDB, getStateForUser, addTrace as dbAddTrace, addReflection as dbAddReflection, toggleResonate as dbToggleResonate, setConnection as dbSetConnection, saveDraft as dbSaveDraft, loadDraft as dbLoadDraft, usernameToAuthorName, deleteTrace as dbDeleteTrace, listFriends, removeFriend, listFollowers, removeFollower, changeUsername } from './db/api'
+import TopBar from '../navigation/components/TopBar'
+import Feed from '../feed/components/Feed'
+import ComposerModal from '../composer/components/ComposerModal'
+import UserProfile from '../profile/components/UserProfile'
+import ProfileHeader from '../profile/components/ProfileHeader'
+import TraceCard from '../feed/components/TraceCard'
+import EmptyState from '../feed/components/EmptyState'
+import ProfileSwitcher from '../profile/components/ProfileSwitcher'
+import EditProfileModal from '../profile/components/EditProfileModal'
+import PeopleListModal from '../people/components/PeopleListModal'
+import type { HavenState, Mode, Reflection, Trace, TraceType } from '../../lib/types'
+import { timeAgo, useMinuteTicker } from '../../lib/time'
+import { pageVariants } from '../../lib/animation'
+import {
+  initDB,
+  getStateForUser,
+  addTrace as dbAddTrace,
+  addReflection as dbAddReflection,
+  toggleResonate as dbToggleResonate,
+  setConnection as dbSetConnection,
+  saveDraft as dbSaveDraft,
+  loadDraft as dbLoadDraft,
+  usernameToAuthorName,
+  deleteTrace as dbDeleteTrace,
+  listFriends,
+  removeFriend,
+  listFollowers,
+  removeFollower,
+  changeUsername,
+  authorToUsername,
+  refreshAuthorNameMap,
+} from '../../db/api'
 
 // Hardcoded seeds removed in favor of DB
 
-const HavenMinimal = () => {
+const HavenShell = () => {
   const [state, setState] = useState<HavenState>({ traces: [], connections: {} })
   // Initialize mode from current pathname to avoid flash where "Circles" briefly appears
   const initialPath = typeof window !== 'undefined' ? window.location.pathname : '/circles'
@@ -53,7 +70,8 @@ const HavenMinimal = () => {
   const [meUser, setMeUser] = useState<{ name: string; handle: string; bio?: string; avatar?: string | null; circles?: number; signals?: number } | null>(null)
   const [otherUser, setOtherUser] = useState<{ name: string; handle: string; bio?: string; avatar?: string | null; signalFollowers?: number } | null>(null)
   const [meUsername, setMeUsername] = useState('itskylebrooks')
-  const mapAuthorToUsername = useCallback((author: string) => (author === 'Kyle Brooks' ? meUsername : author.toLowerCase()), [meUsername])
+  const currentDisplayName = meUser?.name ?? usernameToAuthorName(meUsername) ?? meUsername
+  const normalizedMeUsername = meUsername.toLowerCase()
 
   const pathFor = useCallback(
     (m: Mode, opts?: { user?: string; traceId?: string }) => {
@@ -70,7 +88,7 @@ const HavenMinimal = () => {
           return `/${(opts?.user ?? '').toLowerCase()}/${opts?.traceId ?? ''}`
       }
     },
-    [],
+    [meUsername],
   )
 
   const applyRoute = useCallback(
@@ -105,14 +123,15 @@ const HavenMinimal = () => {
       }
 
       if (parts.length >= 2) {
-    const id = parts[1]
-    setSelectedTraceId(id)
-    setViewUser(username.toLowerCase() === meUsername ? null : username.toLowerCase())
-    setMode('trace')
+        const id = parts[1]
+        const normalizedUsername = username.toLowerCase()
+        setSelectedTraceId(id)
+        setViewUser(normalizedUsername === meUsername ? null : normalizedUsername)
+        setMode('trace')
         return
       }
     },
-    [],
+    [meUsername],
   )
 
   const navigate = useCallback(
@@ -144,29 +163,31 @@ const HavenMinimal = () => {
   )
 
   const feedTraces = useMemo(() => {
+    const normalizedMe = meUsername.toLowerCase()
     let list = filterForMode(mode)
     // In Circles, only show posts from people I am connected to (friends I follow)
     if (mode === 'circles') {
-      list = list.filter((t) => {
-        const username = (t.authorUsername ?? mapAuthorToUsername(t.author)).toLowerCase()
-        return !!state.connections[username]
+      list = list.filter((trace) => {
+        const authorUsername = trace.authorUsername?.toLowerCase()
+        if (!authorUsername) return false
+        return Boolean(state.connections[authorUsername])
       })
     }
     // Hide current user's own posts from the general feed (they appear on the profile page)
     if (mode !== 'profile') {
-      list = list.filter((t) => mapAuthorToUsername(t.author) !== meUsername)
+      list = list.filter((trace) => trace.authorUsername?.toLowerCase() !== normalizedMe)
     }
     // Defensive: if list is unexpectedly empty but we have traces, fall back to all (respecting the same filter)
     if (list.length === 0 && state.traces.length > 0 && (mode === 'circles' || mode === 'signals')) {
       const fallback = [...state.traces]
-        .filter((t) => (mode === 'circles' ? t.kind === 'circle' : t.kind === 'signal'))
+        .filter((trace) => (mode === 'circles' ? trace.kind === 'circle' : trace.kind === 'signal'))
         .sort((a, b) => b.createdAt - a.createdAt)
       // We're in circles|signals here; hide current user's posts from the general feed
-      const fallbackList = fallback.filter((t) => mapAuthorToUsername(t.author) !== meUsername)
+      const fallbackList = fallback.filter((trace) => trace.authorUsername?.toLowerCase() !== normalizedMe)
       return fallbackList
     }
     return list
-  }, [mode, filterForMode, state.traces, meUsername, mapAuthorToUsername])
+  }, [mode, filterForMode, state.traces, state.connections, meUsername])
 
   const formatTime = useCallback(
     (createdAt: number) => {
@@ -181,7 +202,7 @@ const HavenMinimal = () => {
       await initDB()
       // determine current user from settings if present
       try {
-        const { getSetting } = await import('./db/api')
+        const { getSetting } = await import('../../db/api')
         const current = (await getSetting<string>('currentUser')) ?? meUsername
         setMeUsername(current)
         const snapshot = await getStateForUser(current)
@@ -191,7 +212,7 @@ const HavenMinimal = () => {
         setState(snapshot)
       }
       // load me user
-      const { db } = await import('./db/dexie')
+      const { db } = await import('../../db/dexie')
       const me = await db.users.get(meUsername)
       if (me) {
         // Compute actual counts
@@ -277,9 +298,12 @@ const HavenMinimal = () => {
   const handleCreateTrace = () => {
     if (!draft.trim()) return
 
+    const authorUsername = meUsername
+    const authorName = currentDisplayName
     const newTrace: Trace = {
       id: randomId12(),
-      author: meUser?.name ?? 'Kyle Brooks',
+      author: authorName,
+      authorUsername,
       text: draft.trim(),
       kind: draftKind,
       createdAt: Date.now(),
@@ -291,7 +315,7 @@ const HavenMinimal = () => {
       ...prev,
       traces: [newTrace, ...prev.traces],
     }))
-    dbAddTrace(mapAuthorToUsername(newTrace.author), newTrace.text, newTrace.kind, newTrace.createdAt, newTrace.id, newTrace.image)
+    dbAddTrace(authorUsername, newTrace.text, newTrace.kind, newTrace.createdAt, newTrace.id, newTrace.image)
     setDraft('')
     setDraftImage(null)
     setComposerOpen(false)
@@ -303,7 +327,7 @@ const HavenMinimal = () => {
   }
 
   const handleResonate = async (traceId: string) => {
-    const on = await dbToggleResonate(traceId, 'itskylebrooks')
+    const on = await dbToggleResonate(traceId, meUsername)
     setState((prev) => ({
       ...prev,
       traces: prev.traces.map((trace) =>
@@ -319,14 +343,26 @@ const HavenMinimal = () => {
     setReflectionDraft('')
     const t = state.traces.find((x) => x.id === traceId)
     if (t) {
-      navigate(pathFor('trace', { user: mapAuthorToUsername(t.author), traceId }))
+      navigate(pathFor('trace', { user: t.authorUsername ?? meUsername, traceId }))
     }
   }
 
   // Post editing removed; only deletion is allowed
 
-  const openAuthorProfile = (author: string) => {
-    if (author === meUser?.name || author === 'Kyle Brooks') {
+  const openAuthorProfile = (identifier: string) => {
+    const normalizedMe = meUsername.toLowerCase()
+    const trimmed = identifier.trim()
+    const lower = trimmed.toLowerCase()
+    const match = state.traces.find(
+      (trace) =>
+        trace.authorUsername?.toLowerCase() === lower ||
+        trace.author.toLowerCase() === lower,
+    )
+    const resolvedUsername =
+      match?.authorUsername ??
+      (trimmed === meUser?.name ? meUsername : authorToUsername(trimmed))
+
+    if (resolvedUsername.toLowerCase() === normalizedMe) {
       setMode('profile')
       setViewUser(null)
       setSelfProfileKind('circle')
@@ -335,17 +371,18 @@ const HavenMinimal = () => {
     }
 
     setReturnMode(mode)
-    setViewUser(mapAuthorToUsername(author).toLowerCase())
+    setViewUser(resolvedUsername.toLowerCase())
     setMode('user')
-    navigate(pathFor('user', { user: mapAuthorToUsername(author) }))
+    navigate(pathFor('user', { user: resolvedUsername }))
   }
 
   const addReflection = (traceId: string) => {
     if (!reflectionDraft.trim()) return
 
+    const reflectionAuthor = meUser?.name ?? usernameToAuthorName(meUsername) ?? meUsername
     const newReflection: Reflection = {
       id: randomId12(),
-      author: meUser?.name ?? 'Kyle Brooks',
+      author: reflectionAuthor,
       text: reflectionDraft.trim(),
       createdAt: Date.now(),
     }
@@ -371,8 +408,8 @@ const HavenMinimal = () => {
 
   const otherUserTraces = useMemo(() => {
     if (!viewUser) return []
-    const display = usernameToAuthorName(viewUser)
-    return sortedTraces.filter((trace) => trace.author === display)
+    const normalized = viewUser.toLowerCase()
+    return sortedTraces.filter((trace) => trace.authorUsername?.toLowerCase() === normalized)
   }, [sortedTraces, viewUser])
 
   // Load other user's profile when viewUser changes
@@ -382,7 +419,7 @@ const HavenMinimal = () => {
         setOtherUser(null)
         return
       }
-      const { db } = await import('./db/dexie')
+      const { db } = await import('../../db/dexie')
       const u = await db.users.get(viewUser.toLowerCase())
       if (u) {
         const followersCount = await db.subscriptions.where('followee').equals(viewUser.toLowerCase()).count()
@@ -399,7 +436,7 @@ const HavenMinimal = () => {
     if (!viewUser) return
     const username = viewUser.toLowerCase()
     const willConnect = !state.connections[username]
-    await dbSetConnection('itskylebrooks', username, willConnect)
+    await dbSetConnection(meUsername, username, willConnect)
     setState((prev) => ({
       ...prev,
       connections: {
@@ -408,7 +445,7 @@ const HavenMinimal = () => {
       },
     }))
     // Update counts
-    const { db } = await import('./db/dexie')
+    const { db } = await import('../../db/dexie')
     const friendsCount = await db.connections.where('fromUser').equals(meUsername).count()
     setMeUser((prev) => prev ? { ...prev, circles: friendsCount } : prev)
     if (viewUser === meUsername) {
@@ -428,7 +465,7 @@ const HavenMinimal = () => {
   }, [mode, viewUser, state.connections])
 
   const resetDemoData = async () => {
-    const { db } = await import('./db/dexie')
+    const { db } = await import('../../db/dexie')
     await db.delete()
     await initDB()
     const snapshot = await getStateForUser(meUsername)
@@ -475,6 +512,8 @@ const HavenMinimal = () => {
             >
             <Feed
               traces={feedTraces}
+              currentUsername={meUsername}
+              currentDisplayName={currentDisplayName}
               onResonate={handleResonate}
               onReflect={openTraceDetail}
               onOpenProfile={openAuthorProfile}
@@ -497,6 +536,8 @@ const HavenMinimal = () => {
           >
             <Feed
               traces={feedTraces}
+              currentUsername={meUsername}
+              currentDisplayName={currentDisplayName}
               onResonate={handleResonate}
               onReflect={openTraceDetail}
               onOpenProfile={openAuthorProfile}
@@ -570,7 +611,7 @@ const HavenMinimal = () => {
               </div>
               <section className="space-y-4">
                 {sortedTraces
-                  .filter((trace) => trace.author === meUser.name)
+                  .filter((trace) => trace.authorUsername?.toLowerCase() === normalizedMeUsername)
                   .filter((trace) => trace.kind === selfProfileKind)
                   .map((trace) => (
                     <TraceCard
@@ -584,10 +625,10 @@ const HavenMinimal = () => {
                         await dbDeleteTrace(id)
                         setState((prev) => ({ ...prev, traces: prev.traces.filter((t) => t.id !== id) }))
                       }}
-                      canDelete={trace.author === 'Kyle Brooks'}
+                      canDelete={trace.authorUsername?.toLowerCase() === normalizedMeUsername}
                     />
                   ))}
-                {sortedTraces.filter((trace) => trace.author === meUser.name && trace.kind === selfProfileKind).length === 0 && (
+                {sortedTraces.filter((trace) => trace.authorUsername?.toLowerCase() === normalizedMeUsername && trace.kind === selfProfileKind).length === 0 && (
                   <EmptyState message="Your traces will live here when you share them." />
                 )}
               </section>
@@ -645,7 +686,7 @@ const HavenMinimal = () => {
                   setState((prev) => ({ ...prev, traces: prev.traces.filter((t) => t.id !== id) }))
                   handleBack()
                 }}
-                      canDelete={selectedTrace.author === 'Kyle Brooks'}
+                canDelete={selectedTrace.authorUsername?.toLowerCase() === normalizedMeUsername}
               />
               <section className="space-y-4">
                 <h3 className="text-sm font-medium uppercase tracking-wide text-neutral-400">
@@ -740,22 +781,58 @@ const HavenMinimal = () => {
             avatar={meUser.avatar ?? null}
             onClose={() => setEditProfileOpen(false)}
             onSave={async (name, bio, username, avatar) => {
-              const { updateUserProfile } = await import('./db/api')
-              if (username !== meUsername) {
+              const { updateUserProfile } = await import('../../db/api')
+              const nextUsername = username.trim()
+              if (!nextUsername) {
+                alert('Username cannot be empty')
+                return
+              }
+              const previousUsername = meUsername
+              const previousUsernameNormalized = previousUsername.toLowerCase()
+              const nextUsernameNormalized = nextUsername.toLowerCase()
+              const previousDisplayName =
+                meUser?.name ?? usernameToAuthorName(previousUsername) ?? previousUsername
+
+              if (nextUsername !== previousUsername) {
                 try {
-                  await changeUsername(meUsername, username)
-                  setMeUsername(username)
-                } catch (e) {
+                  await changeUsername(previousUsername, nextUsername)
+                  setMeUsername(nextUsername)
+                } catch (error) {
                   alert('Username already exists')
                   return
                 }
               }
-              await updateUserProfile(username, { name, bio, avatar: avatar ?? undefined })
-              setMeUser((prev) => (prev ? { ...prev, name, bio, avatar: avatar ?? null, handle: `@${username}` } : prev))
+
+              await updateUserProfile(nextUsername, { name, bio, avatar: avatar ?? undefined })
+              await refreshAuthorNameMap()
+
+              setMeUser((prev) =>
+                prev ? { ...prev, name, bio, avatar: avatar ?? null, handle: `@${nextUsername}` } : prev,
+              )
+              setState((prev) => ({
+                ...prev,
+                traces: prev.traces.map((trace) => {
+                  const authorUsername = trace.authorUsername?.toLowerCase()
+                  const matchesPrevious =
+                    authorUsername === previousUsernameNormalized ||
+                    (!authorUsername && trace.author === previousDisplayName)
+                  const matchesNext =
+                    authorUsername === nextUsernameNormalized ||
+                    (!authorUsername && trace.author === name)
+
+                  if (matchesPrevious) {
+                    return { ...trace, author: name, authorUsername: nextUsername }
+                  }
+                  if (matchesNext) {
+                    return { ...trace, author: name }
+                  }
+                  return trace
+                }),
+              }))
+
               setEditProfileOpen(false)
-              // if on profile route, update URL
               if (mode === 'profile') {
-                navigate(`/${username}`)
+                navigate(`/${nextUsername}`)
               }
             }}
           />
@@ -806,4 +883,4 @@ const HavenMinimal = () => {
   )
 }
 
-export default HavenMinimal
+export default HavenShell

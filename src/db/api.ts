@@ -102,7 +102,7 @@ export const getStateForUser = async (userId: string): Promise<HavenState> => {
   }))
 
   const connections: HavenState['connections'] = {}
-  dbConnections.forEach((c) => (connections[c.toUser] = true))
+  dbConnections.forEach((c) => (connections[c.toUser.toLowerCase()] = true))
 
   return { traces, connections }
 }

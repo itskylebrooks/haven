@@ -1,7 +1,7 @@
-import type { Trace, TraceType } from '../lib/types'
+import type { Trace, TraceType } from '../../../lib/types'
+import TraceCard from '../../feed/components/TraceCard'
 import ProfileHeader from './ProfileHeader'
-import TraceCard from './TraceCard'
-import ProfileSwitcher from './profile/ProfileSwitcher'
+import ProfileSwitcher from './ProfileSwitcher'
 
 type UserProfileProps = {
   profile: {
@@ -10,8 +10,6 @@ type UserProfileProps = {
     bio: string
     avatar?: string | null
     signalFollowers: number
-    gradientFrom?: string
-    gradientTo?: string
   }
   traces: Trace[]
   connected: boolean
@@ -63,8 +61,6 @@ const UserProfile = ({
         connected={connected}
         onConnectToggle={onConnectToggle}
         showConnect
-        gradientFrom={profile.gradientFrom}
-        gradientTo={profile.gradientTo}
       />
 
       {connected && (

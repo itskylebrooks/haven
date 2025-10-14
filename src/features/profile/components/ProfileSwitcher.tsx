@@ -1,4 +1,4 @@
-import type { TraceType } from '../../lib/types'
+import type { TraceType } from '../../../lib/types'
 
 type Props = {
   current: TraceType
@@ -36,4 +36,3 @@ const ProfileSwitcher = ({ current, onChange }: Props) => {
 }
 
 export default ProfileSwitcher
-

@@ -1,7 +1,7 @@
 import { Sparkles, MessagesSquare, Trash2 } from 'lucide-react'
 // Temporarily avoid framer-motion on the card wrapper to prevent
 // mount-time opacity/visibility issues during navigation.
-import type { Trace } from '../lib/types'
+import type { Trace } from '../../../lib/types'
 import clsx from 'clsx'
 
 type TraceCardProps = {
@@ -45,7 +45,8 @@ const TraceCard = ({
           <button
             onClick={(e) => {
               e.stopPropagation()
-              onOpenProfile(trace.authorUsername || trace.author.toLowerCase())
+              const target = trace.authorUsername ?? trace.author
+              onOpenProfile(target)
             }}
             className="font-medium text-neutral-100 transition hover:underline"
           >
@@ -109,7 +110,7 @@ const TraceCard = ({
           )}
         </div>
       </div>
-  </article>
+    </article>
   )
 }
 

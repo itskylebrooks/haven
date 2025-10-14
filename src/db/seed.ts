@@ -187,7 +187,7 @@ export const seedIfEmpty = async () => {
   }
 
   // Use a single transaction and a lightweight lock to prevent concurrent seeding
-  await db.transaction('rw', db.settings, db.users, db.traces, db.reflections, db.resonates, db.connections, db.subscriptions, async () => {
+  await db.transaction('rw', [db.settings, db.users, db.traces, db.reflections, db.resonates, db.connections, db.subscriptions], async () => {
     const seeded = await db.settings.get('seeded')
     if (seeded) return
 
