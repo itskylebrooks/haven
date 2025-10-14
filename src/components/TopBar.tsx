@@ -5,6 +5,7 @@ import { motion } from 'framer-motion'
 
 type TopBarProps = {
   mode: Mode
+  activeTab?: Extract<Mode, 'circles' | 'signals' | 'profile'>
   title?: string | null
   onSelectTab: (tab: Extract<Mode, 'circles' | 'signals' | 'profile'>) => void
   onOpenComposer: () => void
@@ -12,15 +13,21 @@ type TopBarProps = {
 
 const TopBar = ({
   mode,
+  activeTab: passedActiveTab,
   onSelectTab,
   onOpenComposer,
   title,
 }: TopBarProps) => {
   const showTabs = true
 
-  const activeTab = (['circles', 'signals', 'profile'].includes(mode as string)
-    ? (mode as 'circles' | 'signals' | 'profile')
-    : 'circles')
+  // Prefer a passed-in activeTab (useful when viewing a trace and we want to
+  // highlight the tab according to the trace kind). Fallback to deriving
+  // from mode (circles/signals/profile) and default to 'circles'.
+  const activeTab =
+    passedActiveTab ??
+    (['circles', 'signals', 'profile'].includes(mode as string)
+      ? (mode as 'circles' | 'signals' | 'profile')
+      : 'circles')
 
   return (
     <header className="flex h-14 items-center justify-between border-b border-white/5 px-5">

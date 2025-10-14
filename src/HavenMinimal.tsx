@@ -448,6 +448,10 @@ const HavenMinimal = () => {
     <div className="flex min-h-screen flex-col bg-black font-sans text-neutral-100">
       <TopBar
         mode={mode}
+        // If we're viewing a trace, prefer highlighting the tab that matches
+        // the trace's kind (signal vs circle). Otherwise TopBar will derive
+        // from the mode.
+        activeTab={selectedTrace ? (selectedTrace.kind === 'signal' ? 'signals' : 'circles') : undefined}
         onSelectTab={(tab) => {
           setMode(tab)
           setViewUser(null)
