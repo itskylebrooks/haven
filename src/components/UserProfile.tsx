@@ -66,7 +66,7 @@ const UserProfile = ({
       />
 
       {connected && (
-        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+        <div className="rounded-xl border border-emerald-500/20 bg-black/20 px-4 py-3 text-sm text-emerald-100">
           You’re in each other’s Circle now.
         </div>
       )}
@@ -77,7 +77,7 @@ const UserProfile = ({
 
       <section className="space-y-4">
         {visibleTraces.length === 0 ? (
-          <p className="rounded-xl border border-white/5 bg-neutral-950/60 p-4 text-sm text-neutral-400">
+          <p className="rounded-xl border border-white/5 bg-black/60 p-4 text-sm text-neutral-400">
             {filterKind === 'circle' && !connected
               ? 'Circles are mutual. Connect to see each other’s Circles.'
               : 'No traces yet.'}

@@ -419,7 +419,7 @@ const HavenMinimal = () => {
       : null
 
   return (
-    <div className="flex min-h-screen flex-col bg-neutral-950 font-sans text-neutral-100">
+    <div className="flex min-h-screen flex-col bg-black font-sans text-neutral-100">
       <TopBar
         mode={mode}
         onSelectTab={(tab) => {
@@ -619,14 +619,14 @@ const HavenMinimal = () => {
                 </h3>
                 <div className="space-y-3">
                   {(selectedTrace.reflections ?? []).length === 0 && (
-                    <div className="rounded-xl border border-white/5 bg-white/5 px-4 py-3 text-sm text-neutral-400">
+                    <div className="rounded-xl border border-white/5 bg-black/5 px-4 py-3 text-sm text-neutral-400">
                       No reflections yet. Leave the first one.
                     </div>
                   )}
                   {(selectedTrace.reflections ?? []).map((reflection) => (
                     <div
                       key={reflection.id}
-                      className="rounded-xl border border-white/5 bg-neutral-950/60 p-3 pl-4"
+                      className="rounded-xl border border-white/5 bg-black/60 p-3 pl-4"
                     >
                       <div className="mb-1 flex items-center justify-between text-xs text-neutral-500">
                         <button
@@ -644,7 +644,7 @@ const HavenMinimal = () => {
                   ))}
                 </div>
                 <form
-                  className="space-y-3 rounded-xl border border-white/10 bg-neutral-950/70 p-4"
+                  className="space-y-3 rounded-xl border border-white/10 bg-black/70 p-4"
                   onSubmit={(event) => {
                     event.preventDefault()
                     addReflection(selectedTrace.id)
@@ -658,7 +658,7 @@ const HavenMinimal = () => {
                     value={reflectionDraft}
                     onChange={(event) => setReflectionDraft(event.target.value)}
                     placeholder="Add to the conversation…"
-                    className="h-24 w-full resize-none rounded-lg border border-white/10 bg-neutral-950 p-3 text-neutral-100 placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+                    className="h-24 w-full resize-none rounded-lg border border-white/10 bg-black p-3 text-neutral-100 placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
                   />
                   <div className="flex justify-end">
                     <button

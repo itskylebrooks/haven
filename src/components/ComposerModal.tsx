@@ -51,7 +51,7 @@ const ComposerModal = ({
       exit={modalVariants.backdrop.exit}
     >
       <motion.div
-        className="w-[90%] max-w-md space-y-4 rounded-2xl border border-white/10 bg-neutral-900 p-6 shadow-lg"
+        className="w-[90%] max-w-md space-y-4 rounded-2xl border border-white/10 bg-black p-6 shadow-lg"
         initial={modalVariants.panel.initial}
         animate={modalVariants.panel.animate}
         exit={modalVariants.panel.exit}
@@ -64,7 +64,7 @@ const ComposerModal = ({
           value={draft}
           onChange={(event) => onDraftChange(event.target.value)}
           placeholder="What’s on your mind?"
-          className="h-32 w-full resize-none rounded-lg border border-white/10 bg-neutral-950 p-3 text-neutral-100 placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-violet-400/40"
+          className="h-32 w-full resize-none rounded-lg border border-white/10 bg-black p-3 text-neutral-100 placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-violet-400/40"
           aria-label="Trace editor"
         />
         {typeof onImageChange === 'function' && (
@@ -108,7 +108,7 @@ const ComposerModal = ({
           </div>
         )}
         <div className="flex items-center justify-between">
-          <div className="inline-flex rounded-full border border-white/10 bg-neutral-900 p-1 text-sm">
+          <div className="inline-flex rounded-full border border-white/10 bg-black p-1 text-sm">
             {(['circle', 'signal'] as const).map((opt) => {
               const active = kind === opt
               return (

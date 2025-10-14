@@ -7,7 +7,7 @@ type Props = {
 
 const ProfileSwitcher = ({ current, onChange }: Props) => {
   return (
-    <div className="inline-flex rounded-full border border-white/10 bg-neutral-900 p-1 text-sm">
+    <div className="inline-flex rounded-full border border-white/10 bg-black p-1 text-sm">
       {(
         [
           { key: 'circle', label: 'Circles' },

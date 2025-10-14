@@ -36,7 +36,7 @@ const EditProfileModal = ({ isOpen, name, bio, username, onClose, onSave }: Edit
       exit={modalVariants.backdrop.exit}
     >
       <motion.div
-        className="w-[90%] max-w-md space-y-4 rounded-2xl border border-white/10 bg-neutral-900 p-6 shadow-lg"
+        className="w-[90%] max-w-md space-y-4 rounded-2xl border border-white/10 bg-black p-6 shadow-lg"
         initial={modalVariants.panel.initial}
         animate={modalVariants.panel.animate}
         exit={modalVariants.panel.exit}
@@ -49,7 +49,7 @@ const EditProfileModal = ({ isOpen, name, bio, username, onClose, onSave }: Edit
               ref={nameRef}
               value={draftName}
               onChange={(e) => setDraftName(e.target.value)}
-              className="w-full rounded-md border border-white/10 bg-neutral-950 px-3 py-2 text-neutral-100"
+              className="w-full rounded-md border border-white/10 bg-black px-3 py-2 text-neutral-100"
             />
           </div>
           <div>
@@ -59,7 +59,7 @@ const EditProfileModal = ({ isOpen, name, bio, username, onClose, onSave }: Edit
               <input
                 value={draftUsername}
                 onChange={(e) => setDraftUsername(e.target.value.replace(/\s+/g, '').toLowerCase())}
-                className="w-full rounded-md border border-white/10 bg-neutral-950 px-3 py-2 text-neutral-100"
+                className="w-full rounded-md border border-white/10 bg-black px-3 py-2 text-neutral-100"
               />
             </div>
           </div>
@@ -68,7 +68,7 @@ const EditProfileModal = ({ isOpen, name, bio, username, onClose, onSave }: Edit
             <textarea
               value={draftBio}
               onChange={(e) => setDraftBio(e.target.value)}
-              className="h-24 w-full resize-none rounded-md border border-white/10 bg-neutral-950 p-3 text-neutral-100"
+              className="h-24 w-full resize-none rounded-md border border-white/10 bg-black p-3 text-neutral-100"
             />
           </div>
         </div>

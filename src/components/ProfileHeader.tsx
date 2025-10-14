@@ -45,7 +45,7 @@ const ProfileHeader = ({
     </div>
     <p className="text-sm text-neutral-400">{bio}</p>
 
-    {variant === 'self' ? (
+      {variant === 'self' ? (
       <div className="flex justify-center gap-4 text-sm text-neutral-400">
         <button
           onClick={onShowFriends}

@@ -22,7 +22,7 @@ const PeopleListModal = ({ isOpen, title, people, onClose, onOpenProfile, onRemo
       exit={modalVariants.backdrop.exit}
     >
       <motion.div
-        className="w-[90%] max-w-md space-y-4 rounded-2xl border border-white/10 bg-neutral-900 p-6 shadow-lg"
+        className="w-[90%] max-w-md space-y-4 rounded-2xl border border-white/10 bg-black p-6 shadow-lg"
         initial={modalVariants.panel.initial}
         animate={modalVariants.panel.animate}
         exit={modalVariants.panel.exit}
