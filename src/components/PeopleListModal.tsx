@@ -31,7 +31,7 @@ const PeopleListModal = ({ isOpen, title, people, onClose, onOpenProfile, onRemo
           <h3 className="text-lg font-semibold text-white">{title}</h3>
           <button onClick={onClose} className="text-sm text-neutral-400 hover:text-white">Close</button>
         </div>
-        <div className="space-y-2">
+        <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
           {people.length === 0 && (
             <p className="text-sm text-neutral-400">No one yet.</p>
           )}
@@ -64,4 +64,3 @@ const PeopleListModal = ({ isOpen, title, people, onClose, onOpenProfile, onRemo
 }
 
 export default PeopleListModal
-
