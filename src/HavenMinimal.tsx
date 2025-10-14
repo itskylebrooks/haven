@@ -494,14 +494,24 @@ const HavenMinimal = () => {
             exit={pageVariants.exit}
           >
             <div className="mx-auto w-full max-w-xl space-y-8 px-4 py-10">
-              <div className="mb-4">
-                <button
-                  onClick={handleBack}
-                  className="text-sm text-neutral-400 transition hover:text-white"
-                  aria-label="Go back"
-                >
-                  ← Back
-                </button>
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <button
+                    onClick={handleBack}
+                    className="text-sm text-neutral-400 transition hover:text-white"
+                    aria-label="Go back"
+                  >
+                    ← Back
+                  </button>
+                </div>
+                <div>
+                  <button
+                    onClick={() => setEditProfileOpen(true)}
+                    className="inline-flex items-center rounded-full border border-white/10 px-3 py-1 text-sm text-neutral-200 transition hover:bg-white/10"
+                  >
+                    Edit Profile
+                  </button>
+                </div>
               </div>
               <ProfileHeader
                 name={meUser.name}
@@ -529,14 +539,7 @@ const HavenMinimal = () => {
                   })
                 }}
               />
-              <div className="flex justify-center">
-                <button
-                  onClick={() => setEditProfileOpen(true)}
-                  className="rounded-full border border-white/10 px-3 py-1 text-sm text-neutral-200 hover:bg-white/10"
-                >
-                  Edit Profile
-                </button>
-              </div>
+              {/* Edit profile button moved up to the header row */}
               <div className="flex justify-center">
                 <ProfileSwitcher
                   current={selfProfileKind}
