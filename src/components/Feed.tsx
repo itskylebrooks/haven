@@ -9,6 +9,7 @@ type FeedProps = {
   onOpenProfile: (author: string) => void
   formatTime: (createdAt: number) => string
   emptyMessage: string
+  onDelete?: (traceId: string) => void
 }
 
 const Feed = ({
@@ -18,6 +19,7 @@ const Feed = ({
   onOpenProfile,
   formatTime,
   emptyMessage,
+  onDelete,
 }: FeedProps) => (
   <main className="mx-auto w-full max-w-xl space-y-6 px-4 py-6">
     {traces.length === 0 ? (
@@ -31,6 +33,8 @@ const Feed = ({
           onResonate={onResonate}
           onReflect={onReflect}
           onOpenProfile={onOpenProfile}
+          onDelete={onDelete}
+          canDelete={trace.author === 'You'}
         />
       ))
     )}

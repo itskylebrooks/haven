@@ -15,6 +15,7 @@ export type Trace = {
   createdAt: number
   resonates?: boolean
   reflections?: Reflection[]
+  image?: string
 }
 
 export type Mode = 'circles' | 'signals' | 'profile' | 'user' | 'trace'

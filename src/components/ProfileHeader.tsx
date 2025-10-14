@@ -13,6 +13,8 @@ type ProfileHeaderProps = {
   showConnect?: boolean
   gradientFrom?: string
   gradientTo?: string
+  onShowFriends?: () => void
+  onShowFollowers?: () => void
 }
 
 const ProfileHeader = ({
@@ -28,6 +30,8 @@ const ProfileHeader = ({
   showConnect,
   gradientFrom = 'from-amber-400/30',
   gradientTo = 'to-purple-500/30',
+  onShowFriends,
+  onShowFollowers,
 }: ProfileHeaderProps) => (
   <div className="space-y-3 text-center">
     <div
@@ -43,20 +47,26 @@ const ProfileHeader = ({
 
     {variant === 'self' ? (
       <div className="flex justify-center gap-4 text-sm text-neutral-400">
-        <span>
+        <button
+          onClick={onShowFriends}
+          className="rounded-full border border-white/10 px-3 py-1 hover:bg-white/10"
+        >
           <Users className="mr-1 inline h-4 w-4" />
-          {circles ?? 0} Circles
-        </span>
-        <span>
+          {circles ?? 0} Friends
+        </button>
+        <button
+          onClick={onShowFollowers}
+          className="rounded-full border border-white/10 px-3 py-1 hover:bg-white/10"
+        >
           <Radio className="mr-1 inline h-4 w-4" />
-          {signals ?? 0} Signals
-        </span>
+          {signals ?? 0} Followers
+        </button>
       </div>
     ) : (
       <div className="flex flex-col items-center gap-2 text-sm text-neutral-400">
         <span>
           <Radio className="mr-1 inline h-4 w-4" />
-          {signalFollowers} Signal followers
+          {signalFollowers} Followers
         </span>
         {showConnect && (
           <button

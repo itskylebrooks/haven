@@ -17,6 +17,7 @@ export type DBTrace = {
   kind: TraceType
   createdAt: number
   expiresAt?: number
+  image?: string // base64 data URL or remote URL
 }
 
 export type DBReflection = {
@@ -59,4 +60,3 @@ export type DBDraft = {
   kind: TraceType
   updatedAt: number
 }
-

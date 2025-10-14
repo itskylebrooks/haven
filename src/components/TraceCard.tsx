@@ -1,4 +1,4 @@
-import { Sparkles, MessagesSquare } from 'lucide-react'
+import { Sparkles, MessagesSquare, Trash2 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import type { Trace } from '../lib/types'
 import clsx from 'clsx'
@@ -11,6 +11,8 @@ type TraceCardProps = {
   onReflect: (traceId: string) => void
   onOpenProfile: (author: string) => void
   hideReflect?: boolean
+  onDelete?: (traceId: string) => void
+  canDelete?: boolean
 }
 
 const TraceCard = ({
@@ -20,6 +22,8 @@ const TraceCard = ({
   onReflect,
   onOpenProfile,
   hideReflect,
+  onDelete,
+  canDelete,
 }: TraceCardProps) => {
   return (
     <motion.article
@@ -44,6 +48,11 @@ const TraceCard = ({
         </div>
 
         <p className="text-[15px] leading-relaxed text-neutral-100">{trace.text}</p>
+        {trace.image && (
+          <div className="mt-3 overflow-hidden rounded-xl border border-white/5">
+            <img src={trace.image} alt="" className="block h-auto w-full" />
+          </div>
+        )}
 
         <div className="mt-3 flex gap-4 text-sm text-neutral-400">
           <motion.button
@@ -79,6 +88,16 @@ const TraceCard = ({
             >
               <MessagesSquare className="h-4 w-4" />
               Reflect
+            </button>
+          )}
+          {canDelete && onDelete && (
+            <button
+              onClick={() => onDelete(trace.id)}
+              className="flex items-center gap-1 transition hover:text-white"
+              aria-label="Delete trace"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete
             </button>
           )}
         </div>

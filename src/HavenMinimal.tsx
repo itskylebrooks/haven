@@ -8,11 +8,13 @@ import ProfileHeader from './components/ProfileHeader'
 import TraceCard from './components/TraceCard'
 import EmptyState from './components/EmptyState'
 import ProfileSwitcher from './components/profile/ProfileSwitcher'
+import EditProfileModal from './components/EditProfileModal'
+import PeopleListModal from './components/PeopleListModal'
 import type { HavenState, Mode, Reflection, Trace, TraceType } from './lib/types'
 // storage local state not used; DB handles persistence
 import { timeAgo, useMinuteTicker } from './lib/time'
 import { pageVariants } from './lib/animation'
-import { initDB, getStateForUser, addTrace as dbAddTrace, addReflection as dbAddReflection, toggleResonate as dbToggleResonate, setConnection as dbSetConnection, saveDraft as dbSaveDraft, loadDraft as dbLoadDraft, authorToUsername, usernameToAuthorName } from './db/api'
+import { initDB, getStateForUser, addTrace as dbAddTrace, addReflection as dbAddReflection, toggleResonate as dbToggleResonate, setConnection as dbSetConnection, saveDraft as dbSaveDraft, loadDraft as dbLoadDraft, usernameToAuthorName, deleteTrace as dbDeleteTrace, listFriends, removeFriend, listFollowers, removeFollower, changeUsername } from './db/api'
 
 // Hardcoded seeds removed in favor of DB
 
@@ -25,14 +27,24 @@ const HavenMinimal = () => {
   const [composerOpen, setComposerOpen] = useState(false)
   const [draft, setDraft] = useState('')
   const [draftKind, setDraftKind] = useState<TraceType>('circle')
+  const [draftImage, setDraftImage] = useState<string | null>(null)
   const [returnMode, setReturnMode] = useState<Mode>('circles')
   const [reflectionDraft, setReflectionDraft] = useState('')
   const [selfProfileKind, setSelfProfileKind] = useState<TraceType>('circle')
   const [otherProfileKind, setOtherProfileKind] = useState<TraceType>('signal')
+  // removed edit state
+  const [editProfileOpen, setEditProfileOpen] = useState(false)
+  const [peopleModal, setPeopleModal] = useState<{
+    open: boolean
+    title: string
+    list: { id: string; name: string; handle: string }[]
+    kind: 'friends' | 'followers'
+  }>({ open: false, title: '', list: [], kind: 'friends' })
   const minuteTicker = useMinuteTicker()
   const [meUser, setMeUser] = useState<{ name: string; handle: string; bio?: string; circles?: number; signals?: number } | null>(null)
-  const [otherUser, setOtherUser] = useState<{ name: string; handle: string; bio?: string } | null>(null)
-  const meUsername = 'itskylebrooks'
+  const [otherUser, setOtherUser] = useState<{ name: string; handle: string; bio?: string; signalFollowers?: number } | null>(null)
+  const [meUsername, setMeUsername] = useState('itskylebrooks')
+  const mapAuthorToUsername = useCallback((author: string) => (author === 'You' ? meUsername : author.toLowerCase()), [meUsername])
 
   const pathFor = useCallback(
     (m: Mode, opts?: { user?: string; traceId?: string }) => {
@@ -142,18 +154,30 @@ const HavenMinimal = () => {
   useEffect(() => {
     ;(async () => {
       await initDB()
-      const snapshot = await getStateForUser(meUsername)
-      setState(snapshot)
+      // determine current user from settings if present
+      try {
+        const { getSetting } = await import('./db/api')
+        const current = (await getSetting<string>('currentUser')) ?? meUsername
+        setMeUsername(current)
+        const snapshot = await getStateForUser(current)
+        setState(snapshot)
+      } catch {
+        const snapshot = await getStateForUser(meUsername)
+        setState(snapshot)
+      }
       // load me user
       const { db } = await import('./db/dexie')
       const me = await db.users.get(meUsername)
       if (me) {
+        // Compute actual counts
+        const friendsCount = await db.connections.where('fromUser').equals(meUsername).count()
+        const followersCount = await db.subscriptions.where('followee').equals(meUsername).count()
         setMeUser({
           name: me.name,
           handle: me.handle,
           bio: me.bio,
-          circles: me.circlesCount,
-          signals: me.signalsCount,
+          circles: friendsCount,
+          signals: followersCount,
         })
       }
       // load composer draft
@@ -233,14 +257,16 @@ const HavenMinimal = () => {
       kind: draftKind,
       createdAt: Date.now(),
       reflections: [],
+      image: draftImage ?? undefined,
     }
 
     setState((prev) => ({
       ...prev,
       traces: [newTrace, ...prev.traces],
     }))
-    dbAddTrace(authorToUsername(newTrace.author), newTrace.text, newTrace.kind, newTrace.createdAt, newTrace.id)
+    dbAddTrace(mapAuthorToUsername(newTrace.author), newTrace.text, newTrace.kind, newTrace.createdAt, newTrace.id, newTrace.image)
     setDraft('')
+    setDraftImage(null)
     setComposerOpen(false)
     if (draftKind === 'signal') {
       setMode('signals')
@@ -266,9 +292,11 @@ const HavenMinimal = () => {
     setReflectionDraft('')
     const t = state.traces.find((x) => x.id === traceId)
     if (t) {
-      navigate(pathFor('trace', { user: authorToUsername(t.author), traceId }))
+      navigate(pathFor('trace', { user: mapAuthorToUsername(t.author), traceId }))
     }
   }
+
+  // Post editing removed; only deletion is allowed
 
   const openAuthorProfile = (author: string) => {
     if (author === meUser?.name || author === 'You') {
@@ -280,9 +308,9 @@ const HavenMinimal = () => {
     }
 
     setReturnMode(mode)
-    setViewUser(authorToUsername(author))
+    setViewUser(mapAuthorToUsername(author))
     setMode('user')
-    navigate(pathFor('user', { user: authorToUsername(author) }))
+    navigate(pathFor('user', { user: mapAuthorToUsername(author) }))
   }
 
   const addReflection = (traceId: string) => {
@@ -329,8 +357,10 @@ const HavenMinimal = () => {
       }
       const { db } = await import('./db/dexie')
       const u = await db.users.get(viewUser.toLowerCase())
-      if (u) setOtherUser({ name: u.name, handle: u.handle, bio: u.bio })
-      else setOtherUser(null)
+      if (u) {
+        const followersCount = await db.subscriptions.where('followee').equals(viewUser.toLowerCase()).count()
+        setOtherUser({ name: u.name, handle: u.handle, bio: u.bio, signalFollowers: followersCount })
+      } else setOtherUser(null)
     })()
   }, [viewUser])
 
@@ -350,6 +380,16 @@ const HavenMinimal = () => {
         [viewUser]: willConnect,
       },
     }))
+    // Update counts
+    const { db } = await import('./db/dexie')
+    const friendsCount = await db.connections.where('fromUser').equals(meUsername).count()
+    setMeUser((prev) => prev ? { ...prev, circles: friendsCount } : prev)
+    if (viewUser === meUsername) {
+      // If connecting to self? But shouldn't happen
+    } else {
+      const otherFollowersCount = await db.subscriptions.where('followee').equals(username).count()
+      setOtherUser((prev) => prev ? { ...prev, signalFollowers: otherFollowersCount } : prev)
+    }
   }
 
   // Default profile tab for other users depends on connection
@@ -408,6 +448,10 @@ const HavenMinimal = () => {
               onOpenProfile={openAuthorProfile}
               formatTime={formatTime}
               emptyMessage="Your circles are quiet for now."
+              onDelete={async (id) => {
+                await dbDeleteTrace(id)
+                setState((prev) => ({ ...prev, traces: prev.traces.filter((t) => t.id !== id) }))
+              }}
             />
           </motion.div>
         )}
@@ -426,6 +470,10 @@ const HavenMinimal = () => {
               onOpenProfile={openAuthorProfile}
               formatTime={formatTime}
               emptyMessage="Signals will appear as the world speaks up."
+              onDelete={async (id) => {
+                await dbDeleteTrace(id)
+                setState((prev) => ({ ...prev, traces: prev.traces.filter((t) => t.id !== id) }))
+              }}
             />
           </motion.div>
         )}
@@ -454,7 +502,33 @@ const HavenMinimal = () => {
                 variant="self"
                 circles={meUser.circles ?? 0}
                 signals={meUser.signals ?? 0}
+                onShowFriends={async () => {
+                  const friends = await listFriends(meUsername)
+                  setPeopleModal({
+                    open: true,
+                    title: 'Friends',
+                    list: friends,
+                    kind: 'friends',
+                  })
+                }}
+                onShowFollowers={async () => {
+                  const followers = await listFollowers(meUsername)
+                  setPeopleModal({
+                    open: true,
+                    title: 'Followers',
+                    list: followers,
+                    kind: 'followers',
+                  })
+                }}
               />
+              <div className="flex justify-center">
+                <button
+                  onClick={() => setEditProfileOpen(true)}
+                  className="rounded-full border border-white/10 px-3 py-1 text-sm text-neutral-200 hover:bg-white/10"
+                >
+                  Edit Profile
+                </button>
+              </div>
               <div className="flex justify-center">
                 <ProfileSwitcher
                   current={selfProfileKind}
@@ -473,6 +547,11 @@ const HavenMinimal = () => {
                       onResonate={handleResonate}
                       onReflect={openTraceDetail}
                       onOpenProfile={openAuthorProfile}
+                      onDelete={async (id) => {
+                        await dbDeleteTrace(id)
+                        setState((prev) => ({ ...prev, traces: prev.traces.filter((t) => t.id !== id) }))
+                      }}
+                      canDelete={trace.author === 'You'}
                     />
                   ))}
                 {sortedTraces.filter((trace) => trace.author === meUser.name && trace.kind === selfProfileKind).length === 0 && (
@@ -495,7 +574,7 @@ const HavenMinimal = () => {
                 name: otherUser.name,
                 handle: otherUser.handle,
                 bio: otherUser.bio ?? '',
-                signalFollowers: 0,
+                signalFollowers: otherUser.signalFollowers ?? 0,
               }}
               traces={otherUserTraces}
               connected={!!(viewUser && state.connections[viewUser])}
@@ -525,6 +604,14 @@ const HavenMinimal = () => {
                 onReflect={() => undefined}
                 onOpenProfile={openAuthorProfile}
                 hideReflect
+                onDelete={async (id) => {
+                  await dbDeleteTrace(id)
+                  setSelectedTraceId(null)
+                  // remove from state
+                  setState((prev) => ({ ...prev, traces: prev.traces.filter((t) => t.id !== id) }))
+                  handleBack()
+                }}
+                canDelete={selectedTrace.author === 'You'}
               />
               <section className="space-y-4">
                 <h3 className="text-sm font-medium uppercase tracking-wide text-neutral-400">
@@ -599,9 +686,73 @@ const HavenMinimal = () => {
             onKindChange={setDraftKind}
             onClose={() => setComposerOpen(false)}
             onPost={handleCreateTrace}
+            image={draftImage}
+            onImageChange={setDraftImage}
+            title="Leave a Trace"
+            submitLabel="Post"
           />
         )}
       </AnimatePresence>
+
+      <AnimatePresence>
+        {editProfileOpen && meUser && (
+          <EditProfileModal
+            isOpen={editProfileOpen}
+            name={meUser.name}
+            bio={meUser.bio}
+            username={meUsername}
+            onClose={() => setEditProfileOpen(false)}
+            onSave={async (name, bio, username) => {
+              const { updateUserProfile } = await import('./db/api')
+              if (username !== meUsername) {
+                try {
+                  await changeUsername(meUsername, username)
+                  setMeUsername(username)
+                } catch (e) {
+                  alert('Username already exists')
+                  return
+                }
+              }
+              await updateUserProfile(username, { name, bio })
+              setMeUser((prev) => (prev ? { ...prev, name, bio, handle: `@${username}` } : prev))
+              setEditProfileOpen(false)
+              // if on profile route, update URL
+              if (mode === 'profile') {
+                navigate(`/${username}`)
+              }
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {peopleModal.open && (
+          <PeopleListModal
+            isOpen={peopleModal.open}
+            title={peopleModal.title}
+            people={peopleModal.list}
+            onClose={() => setPeopleModal((p) => ({ ...p, open: false }))}
+            onOpenProfile={(username) => {
+              setPeopleModal((p) => ({ ...p, open: false }))
+              setMode('user')
+              setViewUser(username)
+              navigate(`/${username}`)
+            }}
+            onRemove={async (username) => {
+              if (peopleModal.kind === 'friends') {
+                await removeFriend(meUsername, username)
+              } else {
+                await removeFollower(meUsername, username)
+              }
+              // refresh list
+              const list = peopleModal.kind === 'friends' ? await listFriends(meUsername) : await listFollowers(meUsername)
+              setPeopleModal((p) => ({ ...p, list }))
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Edit modal removed: deletion only */}
 
       <footer className="border-t border-white/5 py-6 text-center text-xs text-neutral-600">
         Haven · v0.0.1 prototype

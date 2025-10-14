@@ -114,5 +114,26 @@ export const seedIfEmpty = async () => {
     }
     if (reflections.length) await db.reflections.bulkPut(reflections)
   })
+
+  // Add connections and subscriptions
+  await db.transaction('rw', db.connections, db.subscriptions, async () => {
+    const connections = [
+      { fromUser: 'itskylebrooks', toUser: 'lena', createdAt: n - 1 * HOURS },
+      { fromUser: 'lena', toUser: 'itskylebrooks', createdAt: n - 1 * HOURS },
+      { fromUser: 'itskylebrooks', toUser: 'milo', createdAt: n - 2 * HOURS },
+      { fromUser: 'milo', toUser: 'itskylebrooks', createdAt: n - 2 * HOURS },
+    ]
+    await db.connections.bulkPut(connections)
+
+    const subscriptions = [
+      { follower: 'ava', followee: 'itskylebrooks', createdAt: n - 30 * MINUTES },
+      { follower: 'eli', followee: 'itskylebrooks', createdAt: n - 1 * HOURS },
+      { follower: 'noah', followee: 'itskylebrooks', createdAt: n - 2 * HOURS },
+      { follower: 'itskylebrooks', followee: 'lena', createdAt: n - 3 * HOURS },
+      { follower: 'itskylebrooks', followee: 'milo', createdAt: n - 4 * HOURS },
+      { follower: 'itskylebrooks', followee: 'ava', createdAt: n - 5 * HOURS },
+    ]
+    await db.subscriptions.bulkPut(subscriptions)
+  })
 }
 

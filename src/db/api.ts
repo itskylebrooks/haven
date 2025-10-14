@@ -34,53 +34,9 @@ export const usernameToAuthorName = (username: string) => {
 
 export const initDB = async (): Promise<void> => {
   await seedIfEmpty()
-  await removeDuplicateTraces()
-}
-
-export const removeDuplicateTraces = async (): Promise<void> => {
-  const all = await db.traces.toArray()
-  if (all.length <= 1) return
-  const byKey = new Map<string, DBTrace[]>()
-  for (const t of all) {
-    const key = `${t.author}|${t.kind}|${t.text.trim()}`
-    const list = byKey.get(key) ?? []
-    list.push(t)
-    byKey.set(key, list)
-  }
-  const toDelete: string[] = []
-  for (const [, list] of byKey) {
-    if (list.length <= 1) continue
-    // Keep the most recent, delete older duplicates
-    list.sort((a, b) => b.createdAt - a.createdAt)
-    for (let i = 1; i < list.length; i++) toDelete.push(list[i].id)
-  }
-  if (toDelete.length) {
-    await db.traces.bulkDelete(toDelete)
-  }
-  // Also dedupe reflections by (traceId, author, text)
-  const allRefl = await db.reflections.toArray()
-  const reflKeyed = new Map<string, string[]>()
-  for (const r of allRefl) {
-    const key = `${r.traceId}|${r.author}|${r.text.trim()}`
-    const list = reflKeyed.get(key) ?? []
-    list.push(r.id)
-    reflKeyed.set(key, list)
-  }
-  const reflToDelete: string[] = []
-  for (const [, ids] of reflKeyed) {
-    if (ids.length > 1) {
-      // keep the first id; delete the rest
-      for (let i = 1; i < ids.length; i++) reflToDelete.push(ids[i])
-    }
-  }
-  if (reflToDelete.length) {
-    await db.reflections.bulkDelete(reflToDelete)
-  }
 }
 
 export const getStateForUser = async (userId: string): Promise<HavenState> => {
-  // Normalize DB to avoid duplicate content caused by earlier seeds
-  await removeDuplicateTraces()
   const [dbTraces, userResonates, dbReflections, dbConnections] = await Promise.all([
     db.traces.orderBy('createdAt').reverse().toArray(),
     db.resonates.where('userId').equals(userId).toArray(),
@@ -91,25 +47,15 @@ export const getStateForUser = async (userId: string): Promise<HavenState> => {
   const resonateSet = new Set(userResonates.map((r) => r.traceId))
   const reflectionsByTrace = dbReflections.reduce<Record<string, Reflection[]>>((acc, r) => {
     const list = acc[r.traceId] || (acc[r.traceId] = [])
-    if (!list.some((x) => x.id === r.id)) {
-      list.push({ id: r.id, author: usernameToAuthorName(r.author), text: r.text, createdAt: r.createdAt })
-    }
+    list.push({ id: r.id, author: usernameToAuthorName(r.author), text: r.text, createdAt: r.createdAt })
     return acc
   }, {})
 
-  // In-memory safety: dedupe by (author, kind, text)
-  const seen = new Set<string>()
-  const traces: Trace[] = []
-  for (const t of dbTraces) {
-    const key = `${t.author}|${t.kind}|${t.text.trim()}`
-    if (seen.has(key)) continue
-    seen.add(key)
-    traces.push({
-      ...toTrace(t),
-      resonates: resonateSet.has(t.id),
-      reflections: (reflectionsByTrace[t.id] || []).sort((a, b) => a.createdAt - b.createdAt),
-    })
-  }
+  const traces: Trace[] = dbTraces.map((t) => ({
+    ...toTrace(t),
+    resonates: resonateSet.has(t.id),
+    reflections: (reflectionsByTrace[t.id] || []).sort((a, b) => a.createdAt - b.createdAt),
+  }))
 
   const connections: HavenState['connections'] = {}
   dbConnections.forEach((c) => (connections[c.toUser] = true))
@@ -123,8 +69,9 @@ export const addTrace = async (
   kind: TraceType,
   createdAt: number,
   id: string,
+  image?: string,
 ) => {
-  const doc: DBTrace = { id, author: authorUsername, text, kind, createdAt }
+  const doc: DBTrace = { id, author: authorUsername, text, kind, createdAt, image }
   await db.traces.put(doc)
 }
 
@@ -182,4 +129,96 @@ export const setSetting = async (key: string, value: unknown) => {
 export const getSetting = async <T = unknown>(key: string): Promise<T | undefined> => {
   const item = await db.settings.get(key)
   return item?.value as T | undefined
+}
+
+export const deleteTrace = async (id: string) => {
+  await db.traces.delete(id)
+}
+
+export const listFriends = async (username: string) => {
+  const connections = await db.connections.where('fromUser').equals(username).toArray()
+  const friendUsernames = connections.map(c => c.toUser)
+  const friends = await db.users.where('id').anyOf(friendUsernames).toArray()
+  return friends.map(f => ({ id: f.id, name: f.name, handle: f.handle }))
+}
+
+export const removeFriend = async (from: string, to: string) => {
+  const existing = await db.connections.where({ fromUser: from, toUser: to }).first()
+  if (existing) await db.connections.delete(existing.id!)
+  const existingReverse = await db.connections.where({ fromUser: to, toUser: from }).first()
+  if (existingReverse) await db.connections.delete(existingReverse.id!)
+}
+
+export const listFollowers = async (username: string) => {
+  const subscriptions = await db.subscriptions.where('followee').equals(username).toArray()
+  const followerUsernames = subscriptions.map(s => s.follower)
+  const followers = await db.users.where('id').anyOf(followerUsernames).toArray()
+  return followers.map(f => ({ id: f.id, name: f.name, handle: f.handle }))
+}
+
+export const removeFollower = async (follower: string, followee: string) => {
+  const existing = await db.subscriptions.where({ follower, followee }).first()
+  if (existing) await db.subscriptions.delete(existing.id!)
+}
+
+export const changeUsername = async (oldUsername: string, newUsername: string) => {
+  // Check if new username exists
+  const existing = await db.users.get(newUsername)
+  if (existing) throw new Error('Username already exists')
+
+  // Update user
+  const user = await db.users.get(oldUsername)
+  if (!user) throw new Error('User not found')
+  await db.users.delete(oldUsername)
+  await db.users.put({ ...user, id: newUsername, handle: `@${newUsername}` })
+
+  // Update traces
+  const traces = await db.traces.where('author').equals(oldUsername).toArray()
+  for (const trace of traces) {
+    await db.traces.update(trace.id, { author: newUsername })
+  }
+
+  // Update reflections
+  const reflections = await db.reflections.where('author').equals(oldUsername).toArray()
+  for (const reflection of reflections) {
+    await db.reflections.update(reflection.id, { author: newUsername })
+  }
+
+  // Update resonates
+  const resonates = await db.resonates.where('userId').equals(oldUsername).toArray()
+  for (const resonate of resonates) {
+    await db.resonates.update(resonate.id!, { userId: newUsername })
+  }
+
+  // Update connections
+  const connectionsFrom = await db.connections.where('fromUser').equals(oldUsername).toArray()
+  for (const conn of connectionsFrom) {
+    await db.connections.update(conn.id!, { fromUser: newUsername })
+  }
+  const connectionsTo = await db.connections.where('toUser').equals(oldUsername).toArray()
+  for (const conn of connectionsTo) {
+    await db.connections.update(conn.id!, { toUser: newUsername })
+  }
+
+  // Update subscriptions
+  const subscriptionsFollower = await db.subscriptions.where('follower').equals(oldUsername).toArray()
+  for (const sub of subscriptionsFollower) {
+    await db.subscriptions.update(sub.id!, { follower: newUsername })
+  }
+  const subscriptionsFollowee = await db.subscriptions.where('followee').equals(oldUsername).toArray()
+  for (const sub of subscriptionsFollowee) {
+    await db.subscriptions.update(sub.id!, { followee: newUsername })
+  }
+
+  // Update settings if current user
+  const currentUser = await getSetting<string>('currentUser')
+  if (currentUser === oldUsername) {
+    await setSetting('currentUser', newUsername)
+  }
+}
+
+export const updateUserProfile = async (username: string, updates: { name?: string; bio?: string }) => {
+  const user = await db.users.get(username)
+  if (!user) throw new Error('User not found')
+  await db.users.update(username, updates)
 }
