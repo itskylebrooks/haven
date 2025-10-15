@@ -86,7 +86,9 @@ const TraceCard = ({
                 <Sparkles
                   className={clsx(
                     'h-4 w-4',
-                    trace.resonates ? 'fill-emerald-500 text-emerald-400' : '',
+                    trace.resonates
+                      ? 'fill-[var(--accent-color)] text-[var(--accent-color)]'
+                      : 'text-neutral-300'
                   )}
                 />
               </motion.span>
