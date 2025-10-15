@@ -70,7 +70,7 @@ const ComposerModal = ({
           }}
           placeholder="What’s on your mind?"
           maxLength={MAX_LENGTH}
-          className="h-32 w-full resize-none rounded-lg border border-white/10 bg-black p-3 text-neutral-100 placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-violet-400/40"
+          className="h-32 w-full resize-none rounded-lg border border-white/10 bg-black p-3 text-neutral-100 placeholder:text-neutral-500"
           aria-label="Trace editor"
         />
         {typeof onImageChange === 'function' && (
