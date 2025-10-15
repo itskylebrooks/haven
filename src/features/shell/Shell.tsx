@@ -10,6 +10,7 @@ import TraceCard from '../feed/components/TraceCard'
 import EmptyState from '../feed/components/EmptyState'
 import ProfileSwitcher from '../profile/components/ProfileSwitcher'
 import PeopleListModal from '../people/components/PeopleListModal'
+import SearchPage from '../search/components/SearchPage'
 import SettingsPage from '../settings/components/SettingsPage'
 import type { HavenState, Mode, Reflection, Trace, TraceType, ComposerKind } from '../../lib/types'
 import { timeAgo, useMinuteTicker } from '../../lib/time'
@@ -86,6 +87,7 @@ const Shell = () => {
     const parts = path.replace(/^\/+/, '').split('/')
     if (parts[0] === '' || parts[0] === 'circles') return 'circles'
     if (parts[0] === 'signals') return 'signals'
+    if (parts[0] === 'search') return 'search'
     if (parts[0] === 'settings') return 'settings'
     if (parts.length === 1) return parts[0] === '' ? 'circles' : 'user'
     return 'trace'
@@ -166,6 +168,8 @@ const Shell = () => {
           return `/${(opts?.user ?? '').toLowerCase()}`
         case 'trace':
           return `/${(opts?.user ?? '').toLowerCase()}/${opts?.traceId ?? ''}`
+        case 'search':
+          return '/search'
         case 'settings':
           return '/settings'
       }
@@ -184,6 +188,12 @@ const Shell = () => {
       }
       if (parts[0] === 'signals') {
         setMode('signals')
+        setViewUser(null)
+        setSelectedTraceId(null)
+        return
+      }
+      if (parts[0] === 'search') {
+        setMode('search')
         setViewUser(null)
         setSelectedTraceId(null)
         return
@@ -276,6 +286,21 @@ const Shell = () => {
     // No fallback; if empty, show empty state per mode
     return list
   }, [mode, filterForMode, state.traces, state.connections, state.connectedBy, state.following, meUsername])
+
+  const mutualConnectionIds = useMemo(() => {
+    const set = new Set<string>()
+    Object.entries(state.connections).forEach(([username, connected]) => {
+      if (!connected) return
+      const normalized = username.toLowerCase()
+      if (state.connectedBy?.[normalized]) set.add(normalized)
+    })
+    return Array.from(set)
+  }, [state.connections, state.connectedBy])
+
+  const followingIds = useMemo(() => {
+    const list = Object.keys(state.following ?? {}).map((username) => username.toLowerCase())
+    return Array.from(new Set(list))
+  }, [state.following])
 
   const formatTime = useCallback(
     (createdAt: number) => {
@@ -370,12 +395,30 @@ const Shell = () => {
         const storedVisibility = await getSetting<'public' | 'link'>('profileVisibility')
         if (storedVisibility === 'public' || storedVisibility === 'link') {
           if (active) setProfileVisibility(storedVisibility)
+          try {
+            const { db } = await import('../../db/dexie')
+            await db.users.update(resolvedUsername, { visibility: storedVisibility })
+          } catch {
+            // ignore sync errors; UI state already updated
+          }
         } else {
           await setSetting('profileVisibility', 'public')
           if (active) setProfileVisibility('public')
+          try {
+            const { db } = await import('../../db/dexie')
+            await db.users.update(resolvedUsername, { visibility: 'public' })
+          } catch {
+            // ignore
+          }
         }
       } catch {
         if (active) setProfileVisibility('public')
+        try {
+          const { db } = await import('../../db/dexie')
+          await db.users.update(resolvedUsername, { visibility: 'public' })
+        } catch {
+          // ignore
+        }
       }
     })()
 
@@ -678,6 +721,12 @@ const Shell = () => {
       await setSetting('profileVisibility', value)
     } catch {
       // ignore
+    }
+    try {
+      const { db } = await import('../../db/dexie')
+      await db.users.update(meUsername, { visibility: value })
+    } catch {
+      // ignore persistence mismatch
     }
   }
 
@@ -998,6 +1047,13 @@ const Shell = () => {
         formatTime={formatTime}
         onOpenTrace={openTraceDetail}
         onOpenProfile={openAuthorProfile}
+        onOpenSearch={() => {
+          setMode('search')
+          setViewUser(null)
+          setSelectedTraceId(null)
+          navigate(pathFor('search'))
+        }}
+        searchActive={mode === 'search'}
         title={
           mode === 'user'
             ? otherUser?.name ?? ''
@@ -1237,6 +1293,24 @@ const Shell = () => {
                 Loading settings…
               </div>
             )}
+          </motion.div>
+        )}
+
+        {mode === 'search' && (
+          <motion.div
+            key="search"
+            initial={false}
+            animate={pageVariants.animate}
+            exit={pageVariants.exit}
+          >
+            <SearchPage
+              meUsername={meUsername}
+              friends={mutualConnectionIds}
+              following={followingIds}
+              onOpenProfile={openAuthorProfile}
+              onOpenTrace={openTraceDetail}
+              formatTime={formatTime}
+            />
           </motion.div>
         )}
 

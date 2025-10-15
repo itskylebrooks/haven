@@ -28,6 +28,13 @@ input:focus-visible,
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
+/* Hide native WebKit clear button in search inputs to avoid double "x" */
+input[type='search']::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}
+
 ::selection {
   background-color: hsl(var(--accent-hsl) / 0.32);
   color: rgb(245 245 245);

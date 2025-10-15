@@ -18,6 +18,8 @@ type TopBarProps = {
   onOpenNotifications?: () => void
   onCloseNotifications?: (visited: { circles: boolean; signals: boolean }) => void
   lastSeenAt?: { circles: number; signals: number }
+  onOpenSearch: () => void
+  searchActive?: boolean
 }
 
 const TopBar = ({
@@ -33,6 +35,8 @@ const TopBar = ({
   onOpenNotifications,
   onCloseNotifications,
   lastSeenAt = { circles: 0, signals: 0 },
+  onOpenSearch,
+  searchActive = false,
 }: TopBarProps) => {
   const showTabs = true
   const [isOpen, setIsOpen] = useState(false)
@@ -220,7 +224,23 @@ const TopBar = ({
       <span className="text-lg font-semibold tracking-tight text-white">Haven</span>
 
       {showTabs ? (
-        <Tabs activeTab={activeTab} onSelect={onSelectTab} />
+        <div className="flex items-center gap-6 text-sm text-neutral-400">
+          <button
+            type="button"
+            onClick={onOpenSearch}
+            className={`relative pb-1 transition-colors ${searchActive ? 'text-white' : 'hover:text-white'}`}
+          >
+            Search
+            {searchActive && (
+              <motion.span
+                layoutId="tab-underline"
+                className="absolute -bottom-[2px] left-0 right-0 h-[2px] rounded-full bg-[var(--accent-color)]"
+                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+              />
+            )}
+          </button>
+          <Tabs activeTab={activeTab} onSelect={onSelectTab} />
+        </div>
       ) : (
         <span className="text-sm text-neutral-400">{title}</span>
       )}

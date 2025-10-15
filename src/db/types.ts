@@ -8,6 +8,7 @@ export type DBUser = {
   avatar?: string
   circlesCount?: number
   signalsCount?: number
+  visibility?: 'public' | 'link'
 }
 
 export type DBTrace = {
