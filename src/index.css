@@ -8,7 +8,7 @@
     'Segoe UI', sans-serif;
   background-color: #000000;
   color: rgb(245 245 245);
-  --accent-hsl: 152 76% 46%;
+  --accent-hsl: 0 0% 100%;
   --accent-color: hsl(var(--accent-hsl));
 }
 

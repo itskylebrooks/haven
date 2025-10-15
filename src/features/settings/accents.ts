@@ -6,6 +6,7 @@ export type AccentOption = {
 }
 
 export const ACCENT_OPTIONS: AccentOption[] = [
+  { id: 'white', label: 'White', hsl: '0 0% 100%', hint: 'pure white' },
   { id: 'emerald', label: 'Verdant', hsl: '152 76% 46%', hint: 'gentle green' },
   { id: 'amber', label: 'Dawn', hsl: '34 98% 60%', hint: 'warm amber' },
   { id: 'azure', label: 'Harbor', hsl: '204 86% 53%', hint: 'calm blue' },
