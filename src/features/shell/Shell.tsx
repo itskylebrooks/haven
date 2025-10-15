@@ -52,6 +52,23 @@ import packageJson from '../../../package.json'
 const DEFAULT_ACCENT = ACCENT_OPTIONS[0]
 const APP_VERSION = (packageJson as { version?: string }).version ?? '0.0.0'
 
+const normalizeLastSeen = (value: unknown): { circles: number; signals: number } => {
+  const fallback = { circles: 0, signals: 0 }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return { circles: value, signals: value }
+  }
+  if (value && typeof value === 'object') {
+    const maybe = value as { circles?: unknown; signals?: unknown }
+    const circles = Number(maybe.circles)
+    const signals = Number(maybe.signals)
+    return {
+      circles: Number.isFinite(circles) ? circles : 0,
+      signals: Number.isFinite(signals) ? signals : 0,
+    }
+  }
+  return fallback
+}
+
 type ProfileSavePayload = {
   name: string
   bio: string
@@ -107,6 +124,17 @@ const Shell = () => {
     kind: 'friends' | 'followers' | 'creators'
   }>({ open: false, title: '', list: [], kind: 'friends' })
   const [notifications, setNotifications] = useState<NotificationsState>({ circles: [], signals: [] })
+  const [notificationsLastSeen, setNotificationsLastSeen] = useState<{ circles: number; signals: number }>(() => {
+    if (typeof window === 'undefined') return { circles: 0, signals: 0 }
+    const raw = window.localStorage.getItem('notificationsLastSeen')
+    if (!raw) return { circles: 0, signals: 0 }
+    try {
+      const parsed = JSON.parse(raw)
+      return normalizeLastSeen(parsed)
+    } catch {
+      return normalizeLastSeen(raw)
+    }
+  })
   const [accentId, setAccentId] = useState<string>(() => {
     if (typeof window === 'undefined') return DEFAULT_ACCENT.id
     const storedAccent = window.localStorage.getItem('accentColor')
@@ -313,6 +341,29 @@ const Shell = () => {
         if (typeof window !== 'undefined') {
           window.localStorage.setItem('accentColor', DEFAULT_ACCENT.id)
         }
+      }
+
+      try {
+        const storedLastSeenRaw = await getSetting<unknown>('notificationsLastSeen')
+        if (storedLastSeenRaw != null) {
+          const normalized = normalizeLastSeen(storedLastSeenRaw)
+          if (active) {
+            setNotificationsLastSeen((prev) => {
+              const merged = {
+                circles: Math.max(prev.circles, normalized.circles),
+                signals: Math.max(prev.signals, normalized.signals),
+              }
+              if (typeof window !== 'undefined') {
+                window.localStorage.setItem('notificationsLastSeen', JSON.stringify(merged))
+              }
+              return merged
+            })
+          } else if (typeof window !== 'undefined') {
+            window.localStorage.setItem('notificationsLastSeen', JSON.stringify(normalized))
+          }
+        }
+      } catch {
+        // ignore
       }
 
       try {
@@ -634,6 +685,47 @@ const Shell = () => {
     ? state.traces.find((trace) => trace.id === selectedTraceId) ?? null
     : null
 
+  const latestNotificationTimestamps = useMemo(() => {
+    const latestCircle = notifications.circles.reduce((max, n) => Math.max(max, n.createdAt), 0)
+    const latestSignal = notifications.signals.reduce((max, n) => Math.max(max, n.latestActivity), 0)
+    return { circles: latestCircle, signals: latestSignal }
+  }, [notifications])
+
+  const hasUnreadNotifications =
+    latestNotificationTimestamps.circles > notificationsLastSeen.circles ||
+    latestNotificationTimestamps.signals > notificationsLastSeen.signals
+
+  const markNotificationsSeen = useCallback(
+    async (visited: { circles: boolean; signals: boolean }) => {
+      const next = {
+        circles: visited.circles
+          ? Math.max(notificationsLastSeen.circles, latestNotificationTimestamps.circles)
+          : notificationsLastSeen.circles,
+        signals: visited.signals
+          ? Math.max(notificationsLastSeen.signals, latestNotificationTimestamps.signals)
+          : notificationsLastSeen.signals,
+      }
+
+      if (
+        next.circles === notificationsLastSeen.circles &&
+        next.signals === notificationsLastSeen.signals
+      ) {
+        return
+      }
+
+      setNotificationsLastSeen(next)
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('notificationsLastSeen', JSON.stringify(next))
+      }
+      try {
+        await setSetting('notificationsLastSeen', next)
+      } catch {
+        // ignore persistence errors
+      }
+    },
+    [notificationsLastSeen, latestNotificationTimestamps],
+  )
+
   const otherUserTraces = useMemo(() => {
     if (!viewUser) return []
     const normalized = viewUser.toLowerCase()
@@ -900,6 +992,9 @@ const Shell = () => {
           navigate(pathFor(tab))
         }}
         notifications={notifications}
+        hasUnreadBadge={hasUnreadNotifications}
+        onCloseNotifications={markNotificationsSeen}
+        lastSeenAt={notificationsLastSeen}
         formatTime={formatTime}
         onOpenTrace={openTraceDetail}
         onOpenProfile={openAuthorProfile}

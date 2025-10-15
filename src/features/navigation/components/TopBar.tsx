@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Bell } from 'lucide-react'
 import Tabs from './Tabs'
@@ -14,6 +14,10 @@ type TopBarProps = {
   formatTime: (timestamp: number) => string
   onOpenTrace: (traceId: string) => void
   onOpenProfile: (identifier: string) => void
+  hasUnreadBadge?: boolean
+  onOpenNotifications?: () => void
+  onCloseNotifications?: (visited: { circles: boolean; signals: boolean }) => void
+  lastSeenAt?: { circles: number; signals: number }
 }
 
 const TopBar = ({
@@ -25,12 +29,19 @@ const TopBar = ({
   onOpenTrace,
   onOpenProfile,
   title,
+  hasUnreadBadge,
+  onOpenNotifications,
+  onCloseNotifications,
+  lastSeenAt = { circles: 0, signals: 0 },
 }: TopBarProps) => {
   const showTabs = true
   const [isOpen, setIsOpen] = useState(false)
   const [activeNotificationsTab, setActiveNotificationsTab] = useState<'circles' | 'signals'>('circles')
+  const [visited, setVisited] = useState<{ circles: boolean; signals: boolean }>({ circles: false, signals: false })
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
+  const wasOpenRef = useRef(false)
+  const visitedRef = useRef<{ circles: boolean; signals: boolean }>({ circles: false, signals: false })
 
   useEffect(() => {
     if (!isOpen) return
@@ -49,6 +60,30 @@ const TopBar = ({
     setIsOpen(false)
   }, [mode, passedActiveTab])
 
+  useEffect(() => {
+    visitedRef.current = visited
+  }, [visited])
+
+  useEffect(() => {
+    if (!isOpen) return
+    setVisited((prev) => ({
+      circles: prev.circles || activeNotificationsTab === 'circles',
+      signals: prev.signals || activeNotificationsTab === 'signals',
+    }))
+  }, [isOpen, activeNotificationsTab])
+
+  useEffect(() => {
+    const wasOpen = wasOpenRef.current
+    if (!wasOpen && isOpen) {
+      setVisited({ circles: activeNotificationsTab === 'circles', signals: activeNotificationsTab === 'signals' })
+      onOpenNotifications?.()
+    } else if (wasOpen && !isOpen) {
+      onCloseNotifications?.(visitedRef.current)
+      setVisited({ circles: false, signals: false })
+    }
+    wasOpenRef.current = isOpen
+  }, [isOpen, activeNotificationsTab, onOpenNotifications, onCloseNotifications])
+
   // Prefer a passed-in activeTab (useful when viewing a trace and we want to
   // highlight the tab according to the trace kind). Fallback to deriving
   // from mode. Treat 'user' as 'profile' so loading a user/profile route
@@ -62,6 +97,16 @@ const TopBar = ({
 
   const activeTab = passedActiveTab ?? derived
   const hasNotifications = notifications.circles.length > 0 || notifications.signals.length > 0
+
+  const unreadCircles = useMemo(
+    () => notifications.circles.filter((item) => item.createdAt > lastSeenAt.circles).length,
+    [lastSeenAt.circles, notifications.circles],
+  )
+  const unreadSignals = useMemo(
+    () => notifications.signals.filter((item) => item.latestActivity > lastSeenAt.signals).length,
+    [lastSeenAt.signals, notifications.signals],
+  )
+  // totalUnread removed from header; per-tab badges show counts
 
   const handleCircleClick = (item: CircleNotification) => {
     if (item.type === 'connection') {
@@ -78,6 +123,7 @@ const TopBar = ({
   }
 
   const renderCircleNotification = (item: CircleNotification) => {
+    const isRead = item.createdAt <= lastSeenAt.circles
     const subtitle =
       item.type === 'connection'
         ? 'wants to connect as a friend'
@@ -90,7 +136,9 @@ const TopBar = ({
         key={item.id}
         type="button"
         onClick={() => handleCircleClick(item)}
-        className="w-full rounded-2xl border border-white/5 bg-white/[0.04] p-3 text-left transition hover:border-white/20 hover:bg-white/[0.08]"
+        className={`w-full rounded-2xl border p-3 text-left transition hover:border-white/20 hover:bg-white/[0.08] ${
+          isRead ? 'border-white/5 bg-white/[0.04]' : 'border-[var(--accent-color)]/60 bg-[hsl(var(--accent-hsl)_/_0.12)]'
+        }`}
       >
         <div className="flex items-center justify-between text-xs text-neutral-500">
           <span className="font-medium text-neutral-200">{item.user.name}</span>
@@ -103,11 +151,25 @@ const TopBar = ({
               {item.traceText}
             </div>
             {item.type === 'reflection' && (
-              <div className="rounded-lg bg-[hsl(var(--accent-hsl)_/_0.14)] px-3 py-2 text-xs text-neutral-100">
-                <span className="block text-[11px] font-medium uppercase tracking-wide text-[var(--accent-color)]">
+              <div
+                className={
+                  isRead
+                    ? 'rounded-lg bg-white/5 px-3 py-2 text-xs text-neutral-300'
+                    : 'rounded-lg bg-[hsl(var(--accent-hsl)_/_0.14)] px-3 py-2 text-xs text-neutral-100'
+                }
+              >
+                <span
+                  className={
+                    isRead
+                      ? 'block text-[11px] font-medium uppercase tracking-wide text-neutral-400'
+                      : 'block text-[11px] font-medium uppercase tracking-wide text-[var(--accent-color)]'
+                  }
+                >
                   Reflection
                 </span>
-                <p className="mt-1 text-sm text-neutral-100">{item.text}</p>
+                <p className={isRead ? 'mt-1 text-sm text-neutral-300' : 'mt-1 text-sm text-neutral-100'}>
+                  {item.text}
+                </p>
               </div>
             )}
           </div>
@@ -117,12 +179,15 @@ const TopBar = ({
   }
 
   const renderSignalNotification = (item: SignalNotification) => {
+    const isRead = item.latestActivity <= lastSeenAt.signals
     return (
       <button
         key={item.traceId}
         type="button"
         onClick={() => handleSignalClick(item)}
-        className="w-full rounded-2xl border border-white/5 bg-white/[0.04] p-3 text-left transition hover:border-white/20 hover:bg-white/[0.08]"
+        className={`w-full rounded-2xl border p-3 text-left transition hover:border-white/20 hover:bg-white/[0.08] ${
+          isRead ? 'border-white/5 bg-white/[0.02]' : 'border-[var(--accent-color)]/60 bg-[hsl(var(--accent-hsl)_/_0.12)]'
+        }`}
       >
         <div className="flex items-center justify-between text-[11px] uppercase tracking-wide text-neutral-500">
           <span>Signal</span>
@@ -164,14 +229,16 @@ const TopBar = ({
         <motion.button
           ref={triggerRef}
           whileTap={{ scale: 0.92 }}
-          onClick={() => setIsOpen((open) => !open)}
+          onClick={() => {
+            setIsOpen((open) => !open)
+          }}
           onMouseDown={(event) => event.preventDefault()}
           className="relative grid h-9 w-9 place-items-center rounded-full border border-white/10 bg-white/[0.08] text-neutral-100 shadow-[0_4px_16px_rgba(0,0,0,0.25)] transition hover:border-white/30 hover:bg-white/[0.16] focus-visible:border-white/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-0 focus-visible:ring-offset-transparent focus-visible:shadow-none"
           aria-label="Open notifications"
           aria-expanded={isOpen}
         >
           <Bell className="h-[18px] w-[18px]" strokeWidth={1.6} />
-          {hasNotifications && (
+          {hasUnreadBadge && (
             <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-[var(--accent-color)]" />
           )}
         </motion.button>
@@ -188,30 +255,36 @@ const TopBar = ({
             >
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-neutral-200">Notifications</span>
-                {hasNotifications ? (
-                  <span className="rounded-full bg-[hsl(var(--accent-hsl)_/_0.22)] px-2 py-0.5 text-xs text-[var(--accent-color)]">
-                    {notifications.circles.length + notifications.signals.length}
-                  </span>
-                ) : (
+                {!hasNotifications && (
                   <span className="text-xs text-neutral-500">Up to date</span>
                 )}
               </div>
 
               <div className="mt-3 flex rounded-full bg-white/5 p-1 text-xs font-medium">
-                {(['circles', 'signals'] as const).map((tab) => (
-                  <button
-                    key={tab}
-                    type="button"
-                    onClick={() => setActiveNotificationsTab(tab)}
-                    className={`flex-1 rounded-full px-3 py-1 transition ${
-                      activeNotificationsTab === tab
-                        ? 'bg-white text-neutral-950'
-                        : 'text-neutral-300 hover:bg-white/10'
-                    }`}
-                  >
-                    {tab === 'circles' ? 'Circles' : 'Signals'}
-                  </button>
-                ))}
+                {(['circles', 'signals'] as const).map((tab) => {
+                  const tabUnread = tab === 'circles' ? unreadCircles : unreadSignals
+                  return (
+                    <button
+                      key={tab}
+                      type="button"
+                      onClick={() => setActiveNotificationsTab(tab)}
+                      className={`flex-1 rounded-full px-3 py-1 transition ${
+                        activeNotificationsTab === tab
+                          ? 'bg-white text-neutral-950'
+                          : 'text-neutral-300 hover:bg-white/10'
+                      }`}
+                    >
+                      <span className="inline-flex items-center justify-center gap-1">
+                        {tab === 'circles' ? 'Circles' : 'Signals'}
+                        {tabUnread > 0 && (
+                          <span className="inline-flex min-w-[18px] items-center justify-center rounded-full bg-[hsl(var(--accent-hsl)_/_0.25)] px-1 text-[11px] font-semibold text-[var(--accent-color)]">
+                            {tabUnread}
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
 
               <div className="mt-4 max-h-80 space-y-3 overflow-y-auto pr-1">
