@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import TopBar from '../navigation/components/TopBar'
 import Feed from '../feed/components/Feed'
@@ -18,6 +18,7 @@ import {
   getStateForUser,
   addTrace as dbAddTrace,
   addReflection as dbAddReflection,
+  deleteReflection as dbDeleteReflection,
   toggleResonate as dbToggleResonate,
   setConnection as dbSetConnection,
   setSubscription as dbSetSubscription,
@@ -58,6 +59,15 @@ const HavenShell = () => {
   const [draftImage, setDraftImage] = useState<string | null>(null)
   const [returnMode, setReturnMode] = useState<Mode>('circles')
   const [reflectionDraft, setReflectionDraft] = useState('')
+  const reflectionInputRef = useRef<HTMLTextAreaElement | null>(null)
+  const maxReflectionLen = 512
+
+  useEffect(() => {
+    const el = reflectionInputRef.current
+    if (!el) return
+    el.style.height = '0px'
+    el.style.height = Math.min(200, el.scrollHeight) + 'px'
+  }, [reflectionDraft])
   const [selfProfileKind, setSelfProfileKind] = useState<TraceType>('circle')
   const [otherProfileKind, setOtherProfileKind] = useState<TraceType>('signal')
   // removed edit state
@@ -403,6 +413,24 @@ const HavenShell = () => {
     setReflectionDraft('')
   }
 
+  const deleteReflection = (traceId: string, reflectionId: string) => {
+    setState((prev) => ({
+      ...prev,
+      traces: prev.traces.map((trace) =>
+        trace.id === traceId
+          ? { ...trace, reflections: (trace.reflections ?? []).filter(r => r.id !== reflectionId) }
+          : trace,
+      ),
+    }))
+    dbDeleteReflection(reflectionId)
+  }
+
+  const startReply = (author: string) => {
+    const prefix = `@${author} `
+    if (!reflectionDraft.startsWith(prefix)) setReflectionDraft(prefix)
+    setTimeout(() => reflectionInputRef.current?.focus(), 0)
+  }
+
   const selectedTrace = selectedTraceId
     ? state.traces.find((trace) => trace.id === selectedTraceId) ?? null
     : null
@@ -720,60 +748,95 @@ const HavenShell = () => {
                 }}
                 canDelete={selectedTrace.authorUsername?.toLowerCase() === normalizedMeUsername}
               />
-              <section className="space-y-4">
-                <h3 className="text-sm font-medium uppercase tracking-wide text-neutral-400">
-                  Reflections
-                </h3>
-                <div className="space-y-3">
-                  {(selectedTrace.reflections ?? []).length === 0 && (
-                    <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-neutral-300">
-                      No reflections yet. Leave the first one.
-                    </div>
-                  )}
-                  {(selectedTrace.reflections ?? []).map((reflection) => (
-                    <div
-                      key={reflection.id}
-                      className="rounded-xl border border-white/10 bg-black/70 p-3 pl-4 transition-colors hover:bg-white/5"
-                    >
-                      <div className="mb-1 flex items-center justify-between text-xs text-neutral-500">
-                        <button
-                          onClick={() => openAuthorProfile(reflection.author)}
-                          className="text-neutral-300 transition hover:underline"
-                        >
-                          {reflection.author}
-                        </button>
-                        <span>{formatTime(reflection.createdAt)}</span>
-                      </div>
-                      <p className="border-l border-white/20 pl-3 text-sm leading-relaxed text-neutral-100">
-                        {reflection.text}
-                      </p>
-                    </div>
-                  ))}
+              <section className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-medium text-neutral-300">Reflections</h3>
+                  <span className="text-xs text-neutral-500">
+                    {(selectedTrace.reflections ?? []).length}
+                  </span>
                 </div>
+
+                {(selectedTrace.reflections ?? []).length === 0 ? (
+                  <div className="rounded-lg bg-white/5 px-4 py-3 text-sm text-neutral-400">
+                    No reflections yet. Be the first.
+                  </div>
+                ) : (
+                  <div className="divide-y divide-white/10 rounded-lg border border-white/10 bg-black/40">
+                    {(selectedTrace.reflections ?? []).map((reflection) => {
+                      const isMine = reflection.author.trim().toLowerCase() === currentDisplayName.trim().toLowerCase()
+                      return (
+                        <div key={reflection.id} className="p-4">
+                          <div className="mb-1 flex items-center justify-between text-xs text-neutral-500">
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => openAuthorProfile(reflection.author)}
+                                className="text-neutral-300 transition hover:underline"
+                              >
+                                {reflection.author}
+                              </button>
+                              <span className="h-1 w-1 rounded-full bg-neutral-600" />
+                              <span>{formatTime(reflection.createdAt)}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <button
+                                type="button"
+                                onClick={() => startReply(reflection.author)}
+                                className="text-neutral-400 hover:text-neutral-200"
+                              >
+                                Reply
+                              </button>
+                              {isMine && (
+                                <button
+                                  type="button"
+                                  onClick={() => deleteReflection(selectedTrace.id, reflection.id)}
+                                  className="text-red-400 hover:text-red-300"
+                                >
+                                  Delete
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          <p className="text-sm leading-relaxed text-neutral-100">{reflection.text}</p>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
                 <form
-                  className="space-y-3 rounded-xl border border-white/10 bg-black/70 p-4"
+                  className="rounded-lg border border-white/10 bg-black/40 p-3"
                   onSubmit={(event) => {
                     event.preventDefault()
+                    if (!reflectionDraft.trim()) return
                     addReflection(selectedTrace.id)
                   }}
                 >
-                  <label className="block text-sm text-neutral-400" htmlFor="reflection-input">
-                    Reflect softly
-                  </label>
-                  <textarea
-                    id="reflection-input"
-                    value={reflectionDraft}
-                    onChange={(event) => setReflectionDraft(event.target.value)}
-                    placeholder="Add to the conversation…"
-                    className="h-24 w-full resize-none rounded-lg border border-white/10 bg-black p-3 text-neutral-100 placeholder:text-neutral-500"
-                  />
-                  <div className="flex justify-end">
-                    <button
-                      type="submit"
-                      className="rounded-md bg-white px-4 py-1.5 text-sm font-medium text-neutral-950 transition hover:bg-white/80"
-                    >
-                      Post reflection
-                    </button>
+                  <div className="flex items-end justify-between gap-3">
+                    <div className="flex-1">
+                      <textarea
+                        id="reflection-input"
+                        ref={reflectionInputRef}
+                        value={reflectionDraft}
+                        maxLength={maxReflectionLen}
+                        onChange={(event) => setReflectionDraft(event.target.value)}
+                        placeholder="Share a reflection…"
+                        className="w-full resize-none bg-transparent text-sm text-neutral-100 placeholder:text-neutral-500 focus:outline-none"
+                        rows={1}
+                        aria-label="Add reflection"
+                      />
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-neutral-500">
+                        {Math.max(0, maxReflectionLen - reflectionDraft.length)} left
+                      </span>
+                      <button
+                        type="submit"
+                        disabled={!reflectionDraft.trim()}
+                        className="rounded-md bg-white px-3 py-1.5 text-xs font-medium text-neutral-950 transition hover:bg-white/90 disabled:cursor-not-allowed disabled:bg-white/30 disabled:text-neutral-700"
+                      >
+                        Reflect
+                      </button>
+                    </div>
                   </div>
                 </form>
               </section>

@@ -135,6 +135,10 @@ export const addReflection = async (
   await db.reflections.put({ id, traceId, author: authorUsername, text, createdAt })
 }
 
+export const deleteReflection = async (id: string) => {
+  await db.reflections.delete(id)
+}
+
 export const toggleResonate = async (
   traceId: string,
   userId: string,
