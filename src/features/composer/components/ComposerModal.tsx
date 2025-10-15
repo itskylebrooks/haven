@@ -80,36 +80,42 @@ const ComposerModal = ({
                 <img src={image} alt="" className="block h-auto w-full" />
               </div>
             )}
-            <div className="flex gap-2">
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-neutral-200 hover:bg-white/10"
-              >
-                {image ? 'Change image' : 'Add image'}
-              </button>
-              {image && (
+            <div className="flex items-center">
+              <div className="flex gap-2">
                 <button
-                  onClick={() => onImageChange(null)}
-                  className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-neutral-300 hover:bg-white/10"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-neutral-200 hover:bg-white/10"
                 >
-                  Remove
+                  {image ? 'Change image' : 'Add image'}
                 </button>
-              )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={async (e) => {
-                  const f = e.target.files?.[0]
-                  if (!f) return
-                  const reader = new FileReader()
-                  reader.onload = () => {
-                    onImageChange?.(reader.result as string)
-                  }
-                  reader.readAsDataURL(f)
-                }}
-              />
+                {image && (
+                  <button
+                    onClick={() => onImageChange(null)}
+                    className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-neutral-300 hover:bg-white/10"
+                  >
+                    Remove
+                  </button>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const f = e.target.files?.[0]
+                    if (!f) return
+                    const reader = new FileReader()
+                    reader.onload = () => {
+                      onImageChange?.(reader.result as string)
+                    }
+                    reader.readAsDataURL(f)
+                  }}
+                />
+              </div>
+
+              <div className="ml-auto text-sm text-neutral-400">
+                {MAX_LENGTH - draft.length} characters left
+              </div>
             </div>
           </div>
         )}
@@ -133,9 +139,11 @@ const ComposerModal = ({
             })}
           </div>
           <div className="flex items-center gap-4">
-            <div className="text-sm text-neutral-400">
-              {MAX_LENGTH - draft.length} characters left
-            </div>
+            {typeof onImageChange !== 'function' && (
+              <div className="text-sm text-neutral-400">
+                {MAX_LENGTH - draft.length} characters left
+              </div>
+            )}
             <div className="flex gap-2">
               <button
                 onClick={onClose}
