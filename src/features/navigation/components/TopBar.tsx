@@ -32,7 +32,7 @@ const TopBar = ({
   const activeTab = passedActiveTab ?? derived
 
   return (
-    <header className="flex h-14 items-center justify-between border-b border-white/5 px-5">
+    <header className="flex h-14 items-center justify-between border-b border-white/10 px-5">
       <span className="text-lg font-semibold tracking-tight text-white">Haven</span>
 
       {showTabs ? (

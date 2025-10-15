@@ -703,14 +703,14 @@ const HavenShell = () => {
                 </h3>
                 <div className="space-y-3">
                   {(selectedTrace.reflections ?? []).length === 0 && (
-                    <div className="rounded-xl border border-white/5 bg-black/5 px-4 py-3 text-sm text-neutral-400">
+                    <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-neutral-300">
                       No reflections yet. Leave the first one.
                     </div>
                   )}
                   {(selectedTrace.reflections ?? []).map((reflection) => (
                     <div
                       key={reflection.id}
-                      className="rounded-xl border border-white/5 bg-black/60 p-3 pl-4"
+                      className="rounded-xl border border-white/10 bg-black/70 p-3 pl-4 transition-colors hover:bg-white/5"
                     >
                       <div className="mb-1 flex items-center justify-between text-xs text-neutral-500">
                         <button
@@ -721,7 +721,7 @@ const HavenShell = () => {
                         </button>
                         <span>{formatTime(reflection.createdAt)}</span>
                       </div>
-                      <p className="border-l border-white/10 pl-3 text-sm leading-relaxed text-neutral-200">
+                      <p className="border-l border-white/20 pl-3 text-sm leading-relaxed text-neutral-100">
                         {reflection.text}
                       </p>
                     </div>
@@ -877,7 +877,7 @@ const HavenShell = () => {
 
       {/* Edit modal removed: deletion only */}
 
-      <footer className="border-t border-white/5 py-6 text-center text-xs text-neutral-600">
+      <footer className="border-t border-white/10 py-6 text-center text-xs text-neutral-400">
         Haven · v0.0.1 prototype
         {footerAction && (
           <button

@@ -39,7 +39,7 @@ const TraceCard = ({
           }
         }}
         className={clsx(
-          'relative overflow-hidden rounded-2xl border border-white/5 bg-black/60 p-4 transition-colors hover:border-white/10',
+          'relative overflow-hidden rounded-2xl border border-white/10 bg-black/70 p-4 transition-colors hover:border-white/20 hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20',
         )}
       >
         <div className="mb-2 flex items-center justify-between text-sm text-neutral-400">
