@@ -63,11 +63,7 @@ const UserProfile = ({
         showConnect
       />
 
-      {connected && (
-        <div className="rounded-xl border border-emerald-500/20 bg-black/20 px-4 py-3 text-sm text-emerald-100">
-            You’re in each other’s Circle now.
-        </div>
-      )}
+
 
       <div className="flex justify-center">
         <ProfileSwitcher current={filterKind} onChange={onChangeFilter} />
