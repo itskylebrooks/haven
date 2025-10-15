@@ -1,5 +1,5 @@
-import HavenShell from '../features/shell/HavenShell'
+import Shell from '../features/shell/Shell'
 
-const App = () => <HavenShell />
+const App = () => <Shell />
 
 export default App

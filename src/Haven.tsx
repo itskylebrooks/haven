@@ -18,7 +18,7 @@ import { initDB, getStateForUser, addTrace as dbAddTrace, addReflection as dbAdd
 
 // Hardcoded seeds removed in favor of DB
 
-const HavenMinimal = () => {
+const Haven = () => {
   const [state, setState] = useState<HavenState>({ traces: [], connections: {} })
   // Initialize mode from current pathname to avoid flash where "Circles" briefly appears
   const initialPath = typeof window !== 'undefined' ? window.location.pathname : '/circles'
@@ -806,4 +806,4 @@ const HavenMinimal = () => {
   )
 }
 
-export default HavenMinimal
+export default Haven

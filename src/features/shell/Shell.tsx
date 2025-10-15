@@ -38,7 +38,7 @@ import {
 
 // Hardcoded seeds removed in favor of DB
 
-const HavenShell = () => {
+const Shell = () => {
   const [state, setState] = useState<HavenState>({ traces: [], connections: {}, connectedBy: {}, following: {} })
   // Initialize mode from current pathname to avoid flash where "Circles" briefly appears
   const initialPath = typeof window !== 'undefined' ? window.location.pathname : '/circles'
@@ -984,4 +984,4 @@ const HavenShell = () => {
   )
 }
 
-export default HavenShell
+export default Shell
