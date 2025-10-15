@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion'
 import type { Mode } from '../../../lib/types'
 
 type TabKey = Extract<Mode, 'circles' | 'signals' | 'profile'>
@@ -14,18 +15,26 @@ const TAB_LABELS: { key: TabKey; label: string }[] = [
 ]
 
 const Tabs = ({ activeTab, onSelect }: TabsProps) => (
-  <nav className="flex gap-6 text-sm text-neutral-400">
-    {TAB_LABELS.map(({ key, label }) => (
-      <button
-        key={key}
-        onClick={() => onSelect(key)}
-        className={`transition-colors ${
-          activeTab === key ? 'text-white' : 'hover:text-white'
-        }`}
-      >
-        {label}
-      </button>
-    ))}
+  <nav className="relative flex gap-6 text-sm text-neutral-400">
+    {TAB_LABELS.map(({ key, label }) => {
+      const isActive = activeTab === key
+      return (
+        <button
+          key={key}
+          onClick={() => onSelect(key)}
+          className={`relative pb-1 transition-colors ${isActive ? 'text-white' : 'hover:text-white'}`}
+        >
+          {label}
+          {isActive && (
+            <motion.span
+              layoutId="tab-underline"
+              className="absolute -bottom-[2px] left-0 right-0 h-[2px] rounded-full bg-white"
+              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+            />)
+          }
+        </button>
+      )
+    })}
   </nav>
 )
 

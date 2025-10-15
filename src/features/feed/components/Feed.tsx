@@ -1,6 +1,8 @@
 import type { Trace } from '../../../lib/types'
 import TraceCard from './TraceCard'
 import EmptyState from './EmptyState'
+import { AnimatePresence, motion } from 'framer-motion'
+import { cardTransition } from '../../../lib/animation'
 
 type FeedProps = {
   traces: Trace[]
@@ -32,24 +34,33 @@ const Feed = ({
       {traces.length === 0 ? (
         <EmptyState message={emptyMessage} />
       ) : (
-        traces.map((trace) => {
-          const canDelete =
-            trace.authorUsername?.toLowerCase() === normalizedUsername ||
-            (currentDisplayName != null && trace.author === currentDisplayName)
+        <AnimatePresence mode="popLayout">
+          {traces.map((trace) => {
+            const canDelete =
+              trace.authorUsername?.toLowerCase() === normalizedUsername ||
+              (currentDisplayName != null && trace.author === currentDisplayName)
 
-          return (
-            <TraceCard
-              key={trace.id}
-              trace={trace}
-              timeLabel={formatTime(trace.createdAt)}
-              onResonate={onResonate}
-              onReflect={onReflect}
-              onOpenProfile={onOpenProfile}
-              onDelete={onDelete}
-              canDelete={canDelete}
-            />
-          )
-        })
+            return (
+              <motion.div
+                key={trace.id}
+                layout
+                initial={cardTransition.initial}
+                animate={cardTransition.animate}
+                exit={{ opacity: 0, y: -8, transition: { duration: 0.14 } }}
+              >
+                <TraceCard
+                  trace={trace}
+                  timeLabel={formatTime(trace.createdAt)}
+                  onResonate={onResonate}
+                  onReflect={onReflect}
+                  onOpenProfile={onOpenProfile}
+                  onDelete={onDelete}
+                  canDelete={canDelete}
+                />
+              </motion.div>
+            )
+          })}
+        </AnimatePresence>
       )}
       {traces.length > 0 && (
         <p className="pt-10 text-center text-sm text-neutral-500">You’re all caught up.</p>

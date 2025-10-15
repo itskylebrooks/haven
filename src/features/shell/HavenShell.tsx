@@ -610,24 +610,33 @@ const HavenShell = () => {
                 <ProfileSwitcher current={selfProfileKind} onChange={setSelfProfileKind} />
               </div>
               <section className="space-y-4">
+                <AnimatePresence mode="popLayout">
                 {sortedTraces
                   .filter((trace) => trace.authorUsername?.toLowerCase() === normalizedMeUsername)
                   .filter((trace) => trace.kind === selfProfileKind)
                   .map((trace) => (
-                    <TraceCard
+                    <motion.div
                       key={trace.id}
-                      trace={trace}
-                      timeLabel={formatTime(trace.createdAt)}
-                      onResonate={handleResonate}
-                      onReflect={openTraceDetail}
-                      onOpenProfile={openAuthorProfile}
-                      onDelete={async (id) => {
-                        await dbDeleteTrace(id)
-                        setState((prev) => ({ ...prev, traces: prev.traces.filter((t) => t.id !== id) }))
-                      }}
-                      canDelete={trace.authorUsername?.toLowerCase() === normalizedMeUsername}
-                    />
+                      layout
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0, transition: { duration: 0.18, ease: [0.16, 1, 0.3, 1] } }}
+                      exit={{ opacity: 0, y: -8, transition: { duration: 0.14 } }}
+                    >
+                      <TraceCard
+                        trace={trace}
+                        timeLabel={formatTime(trace.createdAt)}
+                        onResonate={handleResonate}
+                        onReflect={openTraceDetail}
+                        onOpenProfile={openAuthorProfile}
+                        onDelete={async (id) => {
+                          await dbDeleteTrace(id)
+                          setState((prev) => ({ ...prev, traces: prev.traces.filter((t) => t.id !== id) }))
+                        }}
+                        canDelete={trace.authorUsername?.toLowerCase() === normalizedMeUsername}
+                      />
+                    </motion.div>
                   ))}
+                </AnimatePresence>
                 {sortedTraces.filter((trace) => trace.authorUsername?.toLowerCase() === normalizedMeUsername && trace.kind === selfProfileKind).length === 0 && (
                   <EmptyState message="Your traces will live here when you share them." />
                 )}

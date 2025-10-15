@@ -1,4 +1,5 @@
 import { Sparkles, MessagesSquare, Trash2 } from 'lucide-react'
+import { motion } from 'framer-motion'
 // Temporarily avoid framer-motion on the card wrapper to prevent
 // mount-time opacity/visibility issues during navigation.
 import type { Trace } from '../../../lib/types'
@@ -63,7 +64,7 @@ const TraceCard = ({
         )}
 
         <div className="mt-3 flex gap-4 text-sm text-neutral-400">
-          <button
+          <motion.button
             onClick={(e) => {
               e.stopPropagation()
               onResonate(trace.id)
@@ -71,42 +72,50 @@ const TraceCard = ({
             className="flex items-center gap-1 transition hover:text-white"
             aria-label="Resonate trace"
             aria-pressed={trace.resonates ?? false}
+            whileTap={{ scale: 0.95 }}
           >
-            <span className="flex h-5 w-5 items-center justify-center" style={{ opacity: trace.resonates ? 1 : 0.75 }}>
+            <motion.span
+              className="flex h-5 w-5 items-center justify-center"
+              style={{ opacity: trace.resonates ? 1 : 0.75 }}
+              animate={trace.resonates ? { scale: [1, 1.15, 1], rotate: [0, -8, 0] } : { scale: 1, rotate: 0 }}
+              transition={{ duration: 0.22 }}
+            >
               <Sparkles
                 className={clsx(
                   'h-4 w-4',
                   trace.resonates ? 'fill-emerald-500 text-emerald-400' : '',
                 )}
               />
-            </span>
+            </motion.span>
             Resonate
-          </button>
+          </motion.button>
           {!hideReflect && (
-            <button
+            <motion.button
               onClick={(e) => {
                 e.stopPropagation()
                 onReflect(trace.id)
               }}
               className="flex items-center gap-1 transition hover:text-white"
               aria-label="Reflect on trace"
+              whileTap={{ scale: 0.96 }}
             >
               <MessagesSquare className="h-4 w-4" />
               Reflect
-            </button>
+            </motion.button>
           )}
           {canDelete && onDelete && (
-            <button
+            <motion.button
               onClick={(e) => {
                 e.stopPropagation()
                 onDelete(trace.id)
               }}
               className="flex items-center gap-1 transition hover:text-white"
               aria-label="Delete trace"
+              whileTap={{ scale: 0.96 }}
             >
               <Trash2 className="h-4 w-4" />
               Delete
-            </button>
+            </motion.button>
           )}
         </div>
       </div>
