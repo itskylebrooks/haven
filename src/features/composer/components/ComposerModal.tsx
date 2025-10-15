@@ -1,14 +1,14 @@
 import { useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
-import type { TraceType } from '../../../lib/types'
+import type { ComposerKind } from '../../../lib/types'
 import { modalVariants } from '../../../lib/animation'
 
 type ComposerModalProps = {
   isOpen: boolean
   draft: string
-  kind: TraceType
+  kind: ComposerKind
   onDraftChange: (value: string) => void
-  onKindChange: (value: TraceType) => void
+  onKindChange: (value: ComposerKind) => void
   onClose: () => void
   onPost: () => void
   image?: string | null
@@ -121,7 +121,7 @@ const ComposerModal = ({
         )}
         <div className="flex items-center justify-between">
           <div className="inline-flex rounded-full border border-white/10 bg-black p-1 text-sm">
-            {(['circle', 'signal'] as const).map((opt) => {
+            {(['circle', 'signal', 'both'] as const).map((opt) => {
               const active = kind === opt
               return (
                 <button
@@ -133,7 +133,7 @@ const ComposerModal = ({
                   }
                   aria-pressed={active}
                 >
-                  {opt === 'circle' ? 'Circles' : 'Signals'}
+                  {opt === 'circle' ? 'Circles' : opt === 'signal' ? 'Signals' : 'Both'}
                 </button>
               )
             })}

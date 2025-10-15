@@ -74,11 +74,13 @@ export const dedupeTraces = async (): Promise<void> => {
 }
 
 export const getStateForUser = async (userId: string): Promise<HavenState> => {
-  const [dbTraces, userResonates, dbReflections, dbConnections, users] = await Promise.all([
+  const [dbTraces, userResonates, dbReflections, outgoingConnections, incomingConnections, followingSubs, users] = await Promise.all([
     db.traces.orderBy('createdAt').reverse().toArray(),
     db.resonates.where('userId').equals(userId).toArray(),
     db.reflections.toArray(),
     db.connections.where('fromUser').equals(userId).toArray(),
+    db.connections.where('toUser').equals(userId).toArray(),
+    db.subscriptions.where('follower').equals(userId).toArray(),
     db.users.toArray(),
   ])
 
@@ -102,9 +104,13 @@ export const getStateForUser = async (userId: string): Promise<HavenState> => {
   }))
 
   const connections: HavenState['connections'] = {}
-  dbConnections.forEach((c) => (connections[c.toUser.toLowerCase()] = true))
+  outgoingConnections.forEach((c) => (connections[c.toUser.toLowerCase()] = true))
+  const connectedBy: NonNullable<HavenState['connectedBy']> = {}
+  incomingConnections.forEach((c) => (connectedBy[c.fromUser.toLowerCase()] = true))
+  const following: NonNullable<HavenState['following']> = {}
+  followingSubs.forEach((s) => (following[s.followee.toLowerCase()] = true))
 
-  return { traces, connections }
+  return { traces, connections, connectedBy, following }
 }
 
 export const addTrace = async (
@@ -148,13 +154,23 @@ export const setConnection = async (
   connected: boolean,
 ) => {
   const existing = await db.connections.where({ fromUser: from, toUser: to }).first()
-  const existingReverse = await db.connections.where({ fromUser: to, toUser: from }).first()
   if (connected) {
     if (!existing) await db.connections.add({ fromUser: from, toUser: to, createdAt: Date.now() })
-    if (!existingReverse) await db.connections.add({ fromUser: to, toUser: from, createdAt: Date.now() })
   } else {
     if (existing) await db.connections.delete(existing.id!)
-    if (existingReverse) await db.connections.delete(existingReverse.id!)
+  }
+}
+
+export const setSubscription = async (
+  follower: string,
+  followee: string,
+  following: boolean,
+) => {
+  const existing = await db.subscriptions.where({ follower, followee }).first()
+  if (following) {
+    if (!existing) await db.subscriptions.add({ follower, followee, createdAt: Date.now() })
+  } else if (existing) {
+    await db.subscriptions.delete(existing.id!)
   }
 }
 
@@ -203,6 +219,13 @@ export const listFollowers = async (username: string) => {
 export const removeFollower = async (follower: string, followee: string) => {
   const existing = await db.subscriptions.where({ follower, followee }).first()
   if (existing) await db.subscriptions.delete(existing.id!)
+}
+
+export const listFollowing = async (username: string) => {
+  const subscriptions = await db.subscriptions.where('follower').equals(username).toArray()
+  const followeeUsernames = subscriptions.map(s => s.followee)
+  const creators = await db.users.where('id').anyOf(followeeUsernames).toArray()
+  return creators.map(u => ({ id: u.id, name: u.name, handle: u.handle }))
 }
 
 export const changeUsername = async (oldUsername: string, newUsername: string) => {

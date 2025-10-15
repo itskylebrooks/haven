@@ -1,4 +1,6 @@
 export type TraceType = 'circle' | 'signal'
+// Kind used by the composer UI (supports posting to both)
+export type ComposerKind = TraceType | 'both'
 
 export type Reflection = {
   id: string
@@ -31,5 +33,10 @@ export type User = {
 
 export type HavenState = {
   traces: Trace[]
+  // Outgoing connection requests (I connected to them)
   connections: Record<string, boolean>
+  // Incoming connections (they connected to me)
+  connectedBy?: Record<string, boolean>
+  // People I follow (their signals appear in my feed)
+  following?: Record<string, boolean>
 }

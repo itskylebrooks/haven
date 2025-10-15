@@ -10,7 +10,7 @@ import EmptyState from '../feed/components/EmptyState'
 import ProfileSwitcher from '../profile/components/ProfileSwitcher'
 import EditProfileModal from '../profile/components/EditProfileModal'
 import PeopleListModal from '../people/components/PeopleListModal'
-import type { HavenState, Mode, Reflection, Trace, TraceType } from '../../lib/types'
+import type { HavenState, Mode, Reflection, Trace, TraceType, ComposerKind } from '../../lib/types'
 import { timeAgo, useMinuteTicker } from '../../lib/time'
 import { pageVariants } from '../../lib/animation'
 import {
@@ -20,6 +20,7 @@ import {
   addReflection as dbAddReflection,
   toggleResonate as dbToggleResonate,
   setConnection as dbSetConnection,
+  setSubscription as dbSetSubscription,
   saveDraft as dbSaveDraft,
   loadDraft as dbLoadDraft,
   usernameToAuthorName,
@@ -28,6 +29,7 @@ import {
   removeFriend,
   listFollowers,
   removeFollower,
+  listFollowing,
   changeUsername,
   authorToUsername,
   refreshAuthorNameMap,
@@ -36,7 +38,7 @@ import {
 // Hardcoded seeds removed in favor of DB
 
 const HavenShell = () => {
-  const [state, setState] = useState<HavenState>({ traces: [], connections: {} })
+  const [state, setState] = useState<HavenState>({ traces: [], connections: {}, connectedBy: {}, following: {} })
   // Initialize mode from current pathname to avoid flash where "Circles" briefly appears
   const initialPath = typeof window !== 'undefined' ? window.location.pathname : '/circles'
   const guessInitialMode = (path: string): Mode => {
@@ -52,7 +54,7 @@ const HavenShell = () => {
   const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null)
   const [composerOpen, setComposerOpen] = useState(false)
   const [draft, setDraft] = useState('')
-  const [draftKind, setDraftKind] = useState<TraceType>('circle')
+  const [draftKind, setDraftKind] = useState<ComposerKind>('circle')
   const [draftImage, setDraftImage] = useState<string | null>(null)
   const [returnMode, setReturnMode] = useState<Mode>('circles')
   const [reflectionDraft, setReflectionDraft] = useState('')
@@ -64,7 +66,7 @@ const HavenShell = () => {
     open: boolean
     title: string
     list: { id: string; name: string; handle: string }[]
-    kind: 'friends' | 'followers'
+    kind: 'friends' | 'followers' | 'creators'
   }>({ open: false, title: '', list: [], kind: 'friends' })
   const minuteTicker = useMinuteTicker()
   const [meUser, setMeUser] = useState<{ name: string; handle: string; bio?: string; avatar?: string | null; circles?: number; signals?: number } | null>(null)
@@ -165,29 +167,29 @@ const HavenShell = () => {
   const feedTraces = useMemo(() => {
     const normalizedMe = meUsername.toLowerCase()
     let list = filterForMode(mode)
-    // In Circles, only show posts from people I am connected to (friends I follow)
+    // In Circles, only show posts from people with mutual connection
     if (mode === 'circles') {
       list = list.filter((trace) => {
         const authorUsername = trace.authorUsername?.toLowerCase()
         if (!authorUsername) return false
-        return Boolean(state.connections[authorUsername])
+        return Boolean(state.connections[authorUsername] && (state.connectedBy?.[authorUsername] ?? false))
+      })
+    }
+    // In Signals, only show posts from creators I follow
+    if (mode === 'signals') {
+      list = list.filter((trace) => {
+        const authorUsername = trace.authorUsername?.toLowerCase()
+        if (!authorUsername) return false
+        return Boolean(state.following?.[authorUsername])
       })
     }
     // Hide current user's own posts from the general feed (they appear on the profile page)
     if (mode !== 'profile') {
       list = list.filter((trace) => trace.authorUsername?.toLowerCase() !== normalizedMe)
     }
-    // Defensive: if list is unexpectedly empty but we have traces, fall back to all (respecting the same filter)
-    if (list.length === 0 && state.traces.length > 0 && (mode === 'circles' || mode === 'signals')) {
-      const fallback = [...state.traces]
-        .filter((trace) => (mode === 'circles' ? trace.kind === 'circle' : trace.kind === 'signal'))
-        .sort((a, b) => b.createdAt - a.createdAt)
-      // We're in circles|signals here; hide current user's posts from the general feed
-      const fallbackList = fallback.filter((trace) => trace.authorUsername?.toLowerCase() !== normalizedMe)
-      return fallbackList
-    }
+    // No fallback; if empty, show empty state per mode
     return list
-  }, [mode, filterForMode, state.traces, state.connections, meUsername])
+  }, [mode, filterForMode, state.traces, state.connections, state.connectedBy, state.following, meUsername])
 
   const formatTime = useCallback(
     (createdAt: number) => {
@@ -283,7 +285,7 @@ const HavenShell = () => {
   useEffect(() => {
     if (!composerOpen) return
     const id = window.setTimeout(() => {
-      dbSaveDraft('composer', draft, draftKind)
+      dbSaveDraft('composer', draft, (draftKind === 'both' ? 'signal' : draftKind))
     }, 300)
     return () => window.clearTimeout(id)
   }, [composerOpen, draft, draftKind])
@@ -300,30 +302,29 @@ const HavenShell = () => {
 
     const authorUsername = meUsername
     const authorName = currentDisplayName
-    const newTrace: Trace = {
-      id: randomId12(),
+    const base = {
       author: authorName,
       authorUsername,
       text: draft.trim(),
-      kind: draftKind,
       createdAt: Date.now(),
-      reflections: [],
+      reflections: [] as Reflection[],
       image: draftImage ?? undefined,
     }
 
-    setState((prev) => ({
-      ...prev,
-      traces: [newTrace, ...prev.traces],
-    }))
-    dbAddTrace(authorUsername, newTrace.text, newTrace.kind, newTrace.createdAt, newTrace.id, newTrace.image)
+    if (draftKind === 'both') {
+      const tCircle: Trace = { id: randomId12(), kind: 'circle', ...base }
+      const tSignal: Trace = { id: randomId12(), kind: 'signal', ...base }
+      setState((prev) => ({ ...prev, traces: [tCircle, tSignal, ...prev.traces] }))
+      dbAddTrace(authorUsername, tCircle.text, tCircle.kind, tCircle.createdAt, tCircle.id, tCircle.image)
+      dbAddTrace(authorUsername, tSignal.text, tSignal.kind, tSignal.createdAt, tSignal.id, tSignal.image)
+    } else {
+      const newTrace: Trace = { id: randomId12(), kind: draftKind, ...base }
+      setState((prev) => ({ ...prev, traces: [newTrace, ...prev.traces] }))
+      dbAddTrace(authorUsername, newTrace.text, newTrace.kind, newTrace.createdAt, newTrace.id, newTrace.image)
+    }
     setDraft('')
     setDraftImage(null)
     setComposerOpen(false)
-    if (draftKind === 'signal') {
-      setMode('signals')
-    } else {
-      setMode('circles')
-    }
   }
 
   const handleResonate = async (traceId: string) => {
@@ -444,25 +445,35 @@ const HavenShell = () => {
         [username]: willConnect,
       },
     }))
-    // Update counts
+    // Update my friends count (outgoing connections count)
     const { db } = await import('../../db/dexie')
     const friendsCount = await db.connections.where('fromUser').equals(meUsername).count()
-    setMeUser((prev) => prev ? { ...prev, circles: friendsCount } : prev)
-    if (viewUser === meUsername) {
-      // If connecting to self? But shouldn't happen
-    } else {
-      const otherFollowersCount = await db.subscriptions.where('followee').equals(username).count()
-      setOtherUser((prev) => prev ? { ...prev, signalFollowers: otherFollowersCount } : prev)
-    }
+    setMeUser((prev) => (prev ? { ...prev, circles: friendsCount } : prev))
   }
 
-  // Default profile tab for other users depends on connection
+  const toggleFollow = async () => {
+    if (!viewUser) return
+    const username = viewUser.toLowerCase()
+    const willFollow = !Boolean(state.following?.[username])
+    await dbSetSubscription(meUsername, username, willFollow)
+    setState((prev) => ({
+      ...prev,
+      following: { ...(prev.following ?? {}), [username]: willFollow },
+    }))
+    // Update other user's followers count
+    const { db } = await import('../../db/dexie')
+    const followersCount = await db.subscriptions.where('followee').equals(username).count()
+    setOtherUser((prev) => (prev ? { ...prev, signalFollowers: followersCount } : prev))
+  }
+
+  // Default profile tab for other users depends on mutual connection
   useEffect(() => {
     if (mode === 'user' && viewUser) {
-      const connected = !!state.connections[viewUser.toLowerCase()]
+      const u = viewUser.toLowerCase()
+      const connected = Boolean(state.connections[u] && (state.connectedBy?.[u] ?? false))
       setOtherProfileKind(connected ? 'circle' : 'signal')
     }
-  }, [mode, viewUser, state.connections])
+  }, [mode, viewUser, state.connections, state.connectedBy])
 
   const resetDemoData = async () => {
     const { db } = await import('../../db/dexie')
@@ -604,6 +615,15 @@ const HavenShell = () => {
                     kind: 'followers',
                   })
                 }}
+                onShowCreators={async () => {
+                  const creators = await listFollowing(meUsername)
+                  setPeopleModal({
+                    open: true,
+                    title: 'Creators',
+                    list: creators,
+                    kind: 'creators',
+                  })
+                }}
               />
               {/* Edit profile button moved up to the header row */}
               <div className="flex justify-center">
@@ -661,8 +681,11 @@ const HavenShell = () => {
                 signalFollowers: otherUser.signalFollowers ?? 0,
               }}
               traces={otherUserTraces}
-              connected={!!(viewUser && state.connections[viewUser.toLowerCase()])}
+              connected={!!(viewUser && state.connections[viewUser.toLowerCase()] && (state.connectedBy?.[viewUser.toLowerCase()] ?? false))}
+              requested={!!(viewUser && state.connections[viewUser.toLowerCase()] && !(state.connectedBy?.[viewUser.toLowerCase()] ?? false))}
               onConnectToggle={toggleConnection}
+              followed={!!(viewUser && state.following?.[viewUser.toLowerCase()])}
+              onFollowToggle={toggleFollow}
               onResonate={handleResonate}
               onReflect={openTraceDetail}
               onOpenProfile={openAuthorProfile}
@@ -864,12 +887,18 @@ const HavenShell = () => {
             onRemove={async (username) => {
               if (peopleModal.kind === 'friends') {
                 await removeFriend(meUsername, username)
-              } else {
+                const list = await listFriends(meUsername)
+                setPeopleModal((p) => ({ ...p, list }))
+              } else if (peopleModal.kind === 'followers') {
                 await removeFollower(meUsername, username)
+                const list = await listFollowers(meUsername)
+                setPeopleModal((p) => ({ ...p, list }))
+              } else {
+                // creators -> unfollow
+                await dbSetSubscription(meUsername, username, false)
+                const list = await listFollowing(meUsername)
+                setPeopleModal((p) => ({ ...p, list }))
               }
-              // refresh list
-              const list = peopleModal.kind === 'friends' ? await listFriends(meUsername) : await listFollowers(meUsername)
-              setPeopleModal((p) => ({ ...p, list }))
             }}
           />
         )}

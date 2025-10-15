@@ -1,4 +1,4 @@
-import { Radio, Users, VenetianMask } from 'lucide-react'
+import { Radio, Users, VenetianMask, UserPlus } from 'lucide-react'
 
 type ProfileHeaderProps = {
   name: string
@@ -9,11 +9,17 @@ type ProfileHeaderProps = {
   circles?: number
   signals?: number
   signalFollowers?: number
-  connected?: boolean
+  // Connection state
+  connected?: boolean // mutual
+  requested?: boolean // outgoing only
   onConnectToggle?: () => void
+  // Follow state
+  followed?: boolean
+  onFollowToggle?: () => void
   showConnect?: boolean
   onShowFriends?: () => void
   onShowFollowers?: () => void
+  onShowCreators?: () => void
 }
 
 const ProfileHeader = ({
@@ -26,11 +32,15 @@ const ProfileHeader = ({
   signals,
   signalFollowers,
   connected,
+  requested,
   onConnectToggle,
+  followed,
+  onFollowToggle,
   showConnect,
 
   onShowFriends,
   onShowFollowers,
+  onShowCreators,
 }: ProfileHeaderProps) => (
   <div className="space-y-3 text-center">
     <div className={`mx-auto mb-3 h-20 w-20 overflow-hidden rounded-full border border-white/10 ${avatar ? 'bg-neutral-900' : 'bg-neutral-800'}`}>
@@ -57,7 +67,7 @@ const ProfileHeader = ({
           className="rounded-full border border-white/10 px-3 py-1 hover:bg-white/10"
         >
           <Users className="mr-1 inline h-4 w-4" />
-          {circles ?? 0} Friends
+          Friends
         </button>
         <button
           onClick={onShowFollowers}
@@ -66,6 +76,13 @@ const ProfileHeader = ({
           <Radio className="mr-1 inline h-4 w-4" />
           {signals ?? 0} Followers
         </button>
+        <button
+          onClick={onShowCreators}
+          className="rounded-full border border-white/10 px-3 py-1 hover:bg-white/10"
+        >
+          <UserPlus className="mr-1 inline h-4 w-4" />
+          Creators
+        </button>
       </div>
     ) : (
       <div className="flex flex-col items-center gap-2 text-sm text-neutral-400">
@@ -73,18 +90,30 @@ const ProfileHeader = ({
           <Radio className="mr-1 inline h-4 w-4" />
           {signalFollowers} Followers
         </span>
-        {showConnect && (
+        <div className="flex gap-2">
+          {showConnect && (
+            <button
+              onClick={onConnectToggle}
+              className={`rounded-full border border-white/10 px-4 py-1 text-sm font-medium transition ${
+                connected
+                  ? 'bg-emerald-500/20 text-emerald-200 hover:bg-emerald-500/30'
+                  : requested
+                  ? 'bg-white/10 text-white/70 cursor-default'
+                  : 'bg-white/10 text-white hover:bg-white/20'
+              }`}
+            >
+              {connected ? 'Connected' : requested ? 'Requested' : 'Connect'}
+            </button>
+          )}
           <button
-            onClick={onConnectToggle}
+            onClick={onFollowToggle}
             className={`rounded-full border border-white/10 px-4 py-1 text-sm font-medium transition ${
-              connected
-                ? 'bg-emerald-500/20 text-emerald-200 hover:bg-emerald-500/30'
-                : 'bg-white/10 text-white hover:bg-white/20'
+              followed ? 'bg-white/10 text-neutral-200 hover:bg-white/20' : 'bg-white text-neutral-900 hover:bg-white/80'
             }`}
           >
-            {connected ? 'Connected' : 'Connect'}
+            {followed ? 'Following' : 'Follow'}
           </button>
-        )}
+        </div>
       </div>
     )}
   </div>

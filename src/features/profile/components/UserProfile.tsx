@@ -13,7 +13,10 @@ type UserProfileProps = {
   }
   traces: Trace[]
   connected: boolean
+  requested?: boolean
+  followed?: boolean
   onConnectToggle: () => void
+  onFollowToggle: () => void
   onResonate: (traceId: string) => void
   onReflect: (traceId: string) => void
   onOpenProfile: (author: string) => void
@@ -26,7 +29,10 @@ const UserProfile = ({
   profile,
   traces,
   connected,
+  requested,
+  followed,
   onConnectToggle,
+  onFollowToggle,
   onResonate,
   onReflect,
   onOpenProfile,
@@ -59,7 +65,10 @@ const UserProfile = ({
         signals={visibleTraces.filter((trace) => trace.kind === 'signal').length}
         signalFollowers={profile.signalFollowers}
         connected={connected}
+        requested={requested}
         onConnectToggle={onConnectToggle}
+        followed={followed}
+        onFollowToggle={onFollowToggle}
         showConnect
       />
 
