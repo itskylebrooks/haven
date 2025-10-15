@@ -266,7 +266,7 @@ const HavenShell = () => {
   }, [applyRoute])
   useEffect(() => {
     const listener = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() === 'c' && !composerOpen) {
+      if (event.key.toLowerCase() === 't' && !composerOpen) {
         const target = event.target as HTMLElement | null
         if (
           target?.tagName === 'INPUT' ||
