@@ -22,12 +22,14 @@ const TopBar = ({
 
   // Prefer a passed-in activeTab (useful when viewing a trace and we want to
   // highlight the tab according to the trace kind). Fallback to deriving
-  // from mode (circles/signals/profile) and default to 'circles'.
-  const activeTab =
-    passedActiveTab ??
-    (['circles', 'signals', 'profile'].includes(mode as string)
-      ? (mode as 'circles' | 'signals' | 'profile')
-      : 'circles')
+  // from mode. Treat 'user' as 'profile' so loading a user/profile route
+  // doesn't briefly highlight 'Circles' before the correct tab is applied.
+  let derived: Extract<Mode, 'circles' | 'signals' | 'profile'> = 'circles'
+  if (mode === 'circles' || mode === 'signals' || mode === 'profile' || mode === 'user') {
+    derived = mode === 'user' ? 'profile' : (mode as 'circles' | 'signals' | 'profile')
+  }
+
+  const activeTab = passedActiveTab ?? derived
 
   return (
     <header className="flex h-14 items-center justify-between border-b border-white/5 px-5">
