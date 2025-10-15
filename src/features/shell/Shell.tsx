@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
+import { Send } from 'lucide-react'
 import TopBar from '../navigation/components/TopBar'
 import Feed from '../feed/components/Feed'
 import ComposerModal from '../composer/components/ComposerModal'
@@ -35,6 +36,13 @@ import {
   authorToUsername,
   refreshAuthorNameMap,
 } from '../../db/api'
+import type { DBConnection, DBReflection, DBResonate, DBUser } from '../../db/types'
+import type {
+  CircleNotification,
+  NotificationsState,
+  PersonSummary,
+  SignalNotification,
+} from '../navigation/types'
 
 // Hardcoded seeds removed in favor of DB
 
@@ -61,6 +69,11 @@ const Shell = () => {
   const [reflectionDraft, setReflectionDraft] = useState('')
   const reflectionInputRef = useRef<HTMLTextAreaElement | null>(null)
   const maxReflectionLen = 512
+  const previewText = useCallback((text: string) => {
+    const normalized = text.trim()
+    if (normalized.length <= 80) return normalized
+    return normalized.slice(0, 80).trimEnd() + '…'
+  }, [])
 
   useEffect(() => {
     const el = reflectionInputRef.current
@@ -78,6 +91,7 @@ const Shell = () => {
     list: { id: string; name: string; handle: string }[]
     kind: 'friends' | 'followers' | 'creators'
   }>({ open: false, title: '', list: [], kind: 'friends' })
+  const [notifications, setNotifications] = useState<NotificationsState>({ circles: [], signals: [] })
   const minuteTicker = useMinuteTicker()
   const [meUser, setMeUser] = useState<{ name: string; handle: string; bio?: string; avatar?: string | null; circles?: number; signals?: number } | null>(null)
   const [otherUser, setOtherUser] = useState<{ name: string; handle: string; bio?: string; avatar?: string | null; signalFollowers?: number } | null>(null)
@@ -503,6 +517,160 @@ const Shell = () => {
     }
   }, [mode, viewUser, state.connections, state.connectedBy])
 
+  useEffect(() => {
+    let cancelled = false
+
+    const loadNotifications = async () => {
+      const me = normalizedMeUsername
+      if (!state.traces.length) {
+        if (!cancelled) setNotifications({ circles: [], signals: [] })
+        return
+      }
+
+      const myTraces = state.traces.filter((trace) => trace.authorUsername?.toLowerCase() === me)
+      if (!myTraces.length) {
+        if (!cancelled) setNotifications({ circles: [], signals: [] })
+        return
+      }
+
+      const traceMap = new Map(myTraces.map((trace) => [trace.id, trace]))
+      const myTraceIds = myTraces.map((trace) => trace.id)
+
+      const { db } = await import('../../db/dexie')
+
+      const [users, resonatesRaw, reflectionsRaw, inboundConnections] = await Promise.all([
+        db.users.toArray(),
+        myTraceIds.length ? db.resonates.where('traceId').anyOf(myTraceIds).toArray() : Promise.resolve([] as DBResonate[]),
+        myTraceIds.length ? db.reflections.where('traceId').anyOf(myTraceIds).toArray() : Promise.resolve([] as DBReflection[]),
+        db.connections.where('toUser').equals(me).toArray(),
+      ])
+
+      const userMap = new Map(
+        users.map((user: DBUser) => [
+          user.id.toLowerCase(),
+          { name: user.name || user.id, handle: user.handle ?? `@${user.id}` },
+        ]),
+      )
+
+      const toPerson = (username: string): PersonSummary => {
+        const normalized = username.toLowerCase()
+        const info = userMap.get(normalized)
+        const name = info?.name ?? usernameToAuthorName(username) ?? username
+        const handle = info?.handle ?? `@${normalized}`
+        return { username: normalized, name, handle }
+      }
+
+      const circles: CircleNotification[] = []
+
+      type SignalBucket = {
+        trace: Trace
+        resonates: DBResonate[]
+        reflections: DBReflection[]
+      }
+      const signalBuckets = new Map<string, SignalBucket>()
+
+      const ensureSignalBucket = (traceId: string, trace: Trace): SignalBucket => {
+        const existing = signalBuckets.get(traceId)
+        if (existing) return existing
+        const bucket: SignalBucket = { trace, resonates: [], reflections: [] }
+        signalBuckets.set(traceId, bucket)
+        return bucket
+      }
+
+      for (const item of resonatesRaw) {
+        if (item.userId.toLowerCase() === me) continue
+        const trace = traceMap.get(item.traceId)
+        if (!trace) continue
+        if (trace.kind === 'circle') {
+          circles.push({
+            id: `resonate-${item.id ?? `${item.userId}-${item.traceId}`}`,
+            type: 'resonate',
+            user: toPerson(item.userId),
+            traceId: trace.id,
+            traceText: previewText(trace.text),
+            createdAt: item.createdAt,
+          })
+        } else if (trace.kind === 'signal') {
+          const bucket = ensureSignalBucket(trace.id, trace)
+          bucket.resonates.push(item)
+        }
+      }
+
+      for (const item of reflectionsRaw) {
+        if (item.author.toLowerCase() === me) continue
+        const trace = traceMap.get(item.traceId)
+        if (!trace) continue
+        if (trace.kind === 'circle') {
+          circles.push({
+            id: `reflection-${item.id}`,
+            type: 'reflection',
+            user: toPerson(item.author),
+            traceId: trace.id,
+            traceText: previewText(trace.text),
+            text: item.text,
+            createdAt: item.createdAt,
+          })
+        } else if (trace.kind === 'signal') {
+          const bucket = ensureSignalBucket(trace.id, trace)
+          bucket.reflections.push(item)
+        }
+      }
+
+      for (const connection of inboundConnections as DBConnection[]) {
+        const normalizedFrom = connection.fromUser.toLowerCase()
+        const alreadyConnected = Boolean(state.connections[normalizedFrom])
+        if (alreadyConnected) continue
+        circles.push({
+          id: `connection-${connection.id ?? connection.fromUser}`,
+          type: 'connection',
+          user: toPerson(connection.fromUser),
+          createdAt: connection.createdAt,
+        })
+      }
+
+      circles.sort((a, b) => b.createdAt - a.createdAt)
+
+      const signals: SignalNotification[] = Array.from(signalBuckets.values())
+        .map((bucket) => {
+          const resonateCount = bucket.resonates.filter((res) => res.userId.toLowerCase() !== me).length
+          const reflections = bucket.reflections
+            .filter((ref) => ref.author.toLowerCase() !== me)
+            .map((ref) => ({
+              id: ref.id,
+              author: toPerson(ref.author),
+              text: ref.text,
+              createdAt: ref.createdAt,
+            }))
+
+          if (resonateCount === 0 && reflections.length === 0) return null
+
+          const latestFromResonates = bucket.resonates.reduce((max, res) => Math.max(max, res.createdAt), bucket.trace.createdAt)
+          const latestFromReflections = reflections.reduce((max, ref) => Math.max(max, ref.createdAt), bucket.trace.createdAt)
+          const latestActivity = Math.max(bucket.trace.createdAt, latestFromResonates, latestFromReflections)
+
+          return {
+            traceId: bucket.trace.id,
+            traceText: previewText(bucket.trace.text),
+            traceKind: bucket.trace.kind,
+            resonateCount,
+            reflections,
+            latestActivity,
+          }
+        })
+        .filter(Boolean) as SignalNotification[]
+
+      signals.sort((a, b) => b.latestActivity - a.latestActivity)
+
+      if (!cancelled) setNotifications({ circles, signals })
+    }
+
+    void loadNotifications()
+
+    return () => {
+      cancelled = true
+    }
+  }, [normalizedMeUsername, previewText, state.connections, state.traces, state.connectedBy])
+
   const resetDemoData = async () => {
     const { db } = await import('../../db/dexie')
     await db.delete()
@@ -535,7 +703,10 @@ const Shell = () => {
           setSelectedTraceId(null)
           navigate(pathFor(tab))
         }}
-        onOpenComposer={() => setComposerOpen(true)}
+        notifications={notifications}
+        formatTime={formatTime}
+        onOpenTrace={openTraceDetail}
+        onOpenProfile={openAuthorProfile}
         title={mode === 'user' ? otherUser?.name ?? '' : mode === 'trace' ? 'Trace' : undefined}
       />
 
@@ -846,7 +1017,15 @@ const Shell = () => {
         </AnimatePresence>
       </div>
 
-      
+      <motion.button
+        type="button"
+        whileTap={{ scale: 0.94 }}
+        onClick={() => setComposerOpen(true)}
+        className="fixed bottom-6 right-5 z-40 flex h-20 w-20 items-center justify-center rounded-full bg-white text-neutral-950 shadow-[0_20px_45px_rgba(255,255,255,0.25)] transition hover:bg-white/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 sm:bottom-8 sm:right-8"
+        aria-label="Compose new trace"
+      >
+        <Send className="h-8 w-8" strokeWidth={1.6} />
+      </motion.button>
 
       <AnimatePresence>
         {composerOpen && (

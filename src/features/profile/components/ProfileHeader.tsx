@@ -67,7 +67,7 @@ const ProfileHeader = ({
           className="rounded-full border border-white/10 px-3 py-1 hover:bg-white/10"
         >
           <Users className="mr-1 inline h-4 w-4" />
-          Friends
+          Friends · {circles ?? 0}
         </button>
         <button
           onClick={onShowFollowers}
