@@ -7,7 +7,7 @@ type Props = {
 
 const ProfileSwitcher = ({ current, onChange }: Props) => {
   return (
-    <div className="inline-flex rounded-full border border-white/10 bg-black p-1 text-sm">
+    <div className="inline-flex rounded-full border border-[hsl(var(--accent-hsl)_/_0.25)] bg-black p-1 text-sm">
       {(
         [
           { key: 'circle', label: 'Circles' },
@@ -22,8 +22,8 @@ const ProfileSwitcher = ({ current, onChange }: Props) => {
             className={
               'px-3 py-1.5 rounded-full transition-colors ' +
               (active
-                ? 'bg-white text-neutral-900'
-                : 'text-neutral-300 hover:text-white hover:bg-white/10')
+                ? 'bg-[var(--accent-color)] text-neutral-900'
+                : 'text-neutral-300 hover:text-white hover:bg-[hsl(var(--accent-hsl)_/_0.12)]')
             }
             aria-pressed={active}
           >

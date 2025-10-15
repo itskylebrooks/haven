@@ -1348,7 +1348,7 @@ const Shell = () => {
                       <button
                         type="submit"
                         disabled={!reflectionDraft.trim()}
-                        className="rounded-md bg-white px-3 py-1.5 text-xs font-medium text-neutral-950 transition hover:bg-white/90 disabled:cursor-not-allowed disabled:bg-white/30 disabled:text-neutral-700"
+                        className="rounded-md bg-[var(--accent-color)] px-3 py-1.5 text-xs font-medium text-neutral-950 transition hover:brightness-110 disabled:cursor-not-allowed disabled:bg-[hsl(var(--accent-hsl)_/_0.35)] disabled:text-neutral-700"
                       >
                         Reflect
                       </button>

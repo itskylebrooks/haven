@@ -120,7 +120,7 @@ const ComposerModal = ({
           </div>
         )}
         <div className="flex items-center justify-between">
-          <div className="inline-flex rounded-full border border-white/10 bg-black p-1 text-sm">
+          <div className="inline-flex rounded-full border border-[hsl(var(--accent-hsl)_/_0.25)] bg-black p-1 text-sm">
             {(['circle', 'signal', 'both'] as const).map((opt) => {
               const active = kind === opt
               return (
@@ -129,7 +129,7 @@ const ComposerModal = ({
                   onClick={() => onKindChange(opt)}
                   className={
                     'px-3 py-1.5 rounded-full transition-colors ' +
-                    (active ? 'bg-white text-neutral-900' : 'text-neutral-300 hover:text-white hover:bg-white/10')
+                    (active ? 'bg-[var(--accent-color)] text-neutral-900' : 'text-neutral-300 hover:text-white hover:bg-[hsl(var(--accent-hsl)_/_0.12)]')
                   }
                   aria-pressed={active}
                 >
@@ -161,8 +161,8 @@ const ComposerModal = ({
                 className={
                   'rounded-md px-4 py-1.5 text-sm font-medium transition ' +
                   (draft.trim().length === 0 || draft.length > MAX_LENGTH
-                    ? 'bg-white/30 text-neutral-800 cursor-not-allowed'
-                    : 'bg-white text-neutral-950 hover:bg-white/80')
+                    ? 'bg-[hsl(var(--accent-hsl)_/_0.35)] text-neutral-800 cursor-not-allowed'
+                    : 'bg-[var(--accent-color)] text-neutral-950 hover:brightness-110')
                 }
               >
                 {submitLabel}

@@ -163,7 +163,7 @@ const SettingsPage = ({
                   )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <label className="cursor-pointer rounded-full border border-white/10 px-4 py-2 text-sm text-neutral-100 transition hover:border-white/30 hover:bg-white/10">
+                  <label className="cursor-pointer rounded-full border border-[hsl(var(--accent-hsl)_/_0.25)] px-4 py-2 text-sm text-neutral-950 bg-[var(--accent-color)] transition hover:brightness-110">
                     <input
                       type="file"
                       accept="image/*"
@@ -184,7 +184,7 @@ const SettingsPage = ({
                     <button
                       type="button"
                       onClick={() => setDraft((prev) => ({ ...prev, avatar: null }))}
-                      className="rounded-full border border-white/10 px-4 py-2 text-sm text-neutral-300 transition hover:border-white/30 hover:bg-white/10"
+                      className="rounded-full border border-white/10 px-4 py-2 text-sm text-neutral-300 transition hover:border-[var(--accent-color)] hover:bg-[hsl(var(--accent-hsl)_/_0.12)]"
                     >
                       Remove
                     </button>
@@ -271,7 +271,7 @@ const SettingsPage = ({
                 type="button"
                 onClick={handleSaveProfile}
                 disabled={!canSaveProfile}
-                className="rounded-full bg-white px-5 py-2 text-sm font-medium text-neutral-900 transition enabled:hover:bg-white/85 disabled:cursor-not-allowed disabled:bg-white/20 disabled:text-neutral-500"
+                className="rounded-full bg-[var(--accent-color)] px-5 py-2 text-sm font-medium text-neutral-900 transition enabled:hover:brightness-110 disabled:cursor-not-allowed disabled:bg-[hsl(var(--accent-hsl)_/_0.35)] disabled:text-neutral-700"
               >
                 {savingProfile ? 'Saving…' : 'Save changes'}
               </button>

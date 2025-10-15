@@ -268,10 +268,10 @@ const TopBar = ({
                       key={tab}
                       type="button"
                       onClick={() => setActiveNotificationsTab(tab)}
-                      className={`flex-1 rounded-full px-3 py-1 transition ${
+                      className={`flex-1 rounded-full px-3 py-1 transition border ${
                         activeNotificationsTab === tab
-                          ? 'bg-white text-neutral-950'
-                          : 'text-neutral-300 hover:bg-white/10'
+                          ? 'border-white text-white'
+                          : 'border-transparent text-neutral-300 hover:bg-white/10'
                       }`}
                     >
                       <span className="inline-flex items-center justify-center gap-1">

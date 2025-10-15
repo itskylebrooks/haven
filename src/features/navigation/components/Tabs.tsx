@@ -28,7 +28,7 @@ const Tabs = ({ activeTab, onSelect }: TabsProps) => (
           {isActive && (
             <motion.span
               layoutId="tab-underline"
-              className="absolute -bottom-[2px] left-0 right-0 h-[2px] rounded-full bg-white"
+              className="absolute -bottom-[2px] left-0 right-0 h-[2px] rounded-full bg-[var(--accent-color)]"
               transition={{ type: 'spring', stiffness: 400, damping: 30 }}
             />)
           }

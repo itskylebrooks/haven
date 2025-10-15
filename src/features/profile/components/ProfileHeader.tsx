@@ -64,21 +64,21 @@ const ProfileHeader = ({
       <div className="flex justify-center gap-4 text-sm text-neutral-400">
         <button
           onClick={onShowFriends}
-          className="rounded-full border border-white/10 px-3 py-1 hover:bg-white/10"
+          className="rounded-full border border-white/10 px-3 py-1 transition hover:border-[var(--accent-color)] hover:bg-[hsl(var(--accent-hsl)_/_0.12)]"
         >
           <Users className="mr-1 inline h-4 w-4" />
           Friends
         </button>
         <button
           onClick={onShowFollowers}
-          className="rounded-full border border-white/10 px-3 py-1 hover:bg-white/10"
+          className="rounded-full border border-white/10 px-3 py-1 transition hover:border-[var(--accent-color)] hover:bg-[hsl(var(--accent-hsl)_/_0.12)]"
         >
           <Radio className="mr-1 inline h-4 w-4" />
           {signals ?? 0} Followers
         </button>
         <button
           onClick={onShowCreators}
-          className="rounded-full border border-white/10 px-3 py-1 hover:bg-white/10"
+          className="rounded-full border border-white/10 px-3 py-1 transition hover:border-[var(--accent-color)] hover:bg-[hsl(var(--accent-hsl)_/_0.12)]"
         >
           <UserPlus className="mr-1 inline h-4 w-4" />
           Creators
