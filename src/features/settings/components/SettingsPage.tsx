@@ -47,7 +47,7 @@ const SettingsPage = ({
   onChangeProfileVisibility,
   resettingDemo,
   onResetDemo,
-  version,
+  version: _version,
 }: SettingsPageProps) => {
   const [draft, setDraft] = useState<ProfileDraft>({
     name: profile.name,
@@ -103,6 +103,8 @@ const SettingsPage = ({
   }
 
   const selectedAccent = ACCENT_OPTIONS.find((option) => option.id === accentId) ?? ACCENT_OPTIONS[0]
+
+  const year = new Date().getFullYear()
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-8 px-4 py-10">
@@ -419,7 +421,14 @@ const SettingsPage = ({
         animate={{ opacity: 1 }}
         transition={{ delay: 0.2 }}
       >
-        Haven v{version} · Kyle Brooks. All rights reserved.
+        <div className="flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
+          <span>© {year} Kyle Brooks. All rights reserved.</span>
+          <nav className="flex items-center gap-4 text-neutral-400">
+            <a href="https://itskylebrooks.vercel.app/imprint" className="hover:text-white" target="_blank" rel="noreferrer noopener">Imprint</a>
+            <a href="https://itskylebrooks.vercel.app/privacy" className="hover:text-white" target="_blank" rel="noreferrer noopener">Privacy Policy</a>
+            <a href="https://itskylebrooks.vercel.app/license" className="hover:text-white" target="_blank" rel="noreferrer noopener">License</a>
+          </nav>
+        </div>
       </motion.footer>
     </div>
   )
