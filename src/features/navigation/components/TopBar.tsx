@@ -47,7 +47,7 @@ const TopBar = ({
         className="grid h-8 w-8 place-items-center rounded-full bg-white text-neutral-950 transition hover:bg-white/90"
         aria-label="Compose trace"
       >
-        <Send className="h-4 w-4" />
+  <Send className="h-5 w-5 relative -translate-x-[1px] translate-y-[1px]" />
       </motion.button>
     </header>
   )
