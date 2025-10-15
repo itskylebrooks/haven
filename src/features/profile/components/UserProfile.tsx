@@ -94,6 +94,7 @@ const UserProfile = ({
               onResonate={onResonate}
               onReflect={onReflect}
               onOpenProfile={onOpenProfile}
+              showResonateIcon={false}
             />
           ))
         )}

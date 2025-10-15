@@ -21,7 +21,7 @@ export type Trace = {
   image?: string
 }
 
-export type Mode = 'circles' | 'signals' | 'profile' | 'user' | 'trace'
+export type Mode = 'circles' | 'signals' | 'profile' | 'user' | 'trace' | 'settings'
 
 export type User = {
   name: string

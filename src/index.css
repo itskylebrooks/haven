@@ -8,8 +8,8 @@
     'Segoe UI', sans-serif;
   background-color: #000000;
   color: rgb(245 245 245);
-  --accent-circle: 147 65% 45%;
-  --accent-signal: 259 92% 76%;
+  --accent-hsl: 152 76% 46%;
+  --accent-color: hsl(var(--accent-hsl));
 }
 
 body {
@@ -23,11 +23,12 @@ textarea:focus-visible,
 input:focus-visible,
 [contenteditable]:focus-visible {
   outline: none;
-  /* Change the existing border color on focus to a dark 'hell grey'. */
-  border-color: #4b5563; /* slate-600 / hell grey */
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px hsl(var(--accent-hsl) / 0.18);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 ::selection {
-  background-color: hsl(var(--accent-signal) / 0.35);
+  background-color: hsl(var(--accent-hsl) / 0.32);
   color: rgb(245 245 245);
 }

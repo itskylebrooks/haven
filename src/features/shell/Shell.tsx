@@ -9,8 +9,8 @@ import ProfileHeader from '../profile/components/ProfileHeader'
 import TraceCard from '../feed/components/TraceCard'
 import EmptyState from '../feed/components/EmptyState'
 import ProfileSwitcher from '../profile/components/ProfileSwitcher'
-import EditProfileModal from '../profile/components/EditProfileModal'
 import PeopleListModal from '../people/components/PeopleListModal'
+import SettingsPage from '../settings/components/SettingsPage'
 import type { HavenState, Mode, Reflection, Trace, TraceType, ComposerKind } from '../../lib/types'
 import { timeAgo, useMinuteTicker } from '../../lib/time'
 import { pageVariants } from '../../lib/animation'
@@ -25,6 +25,8 @@ import {
   setSubscription as dbSetSubscription,
   saveDraft as dbSaveDraft,
   loadDraft as dbLoadDraft,
+  setSetting,
+  getSetting,
   usernameToAuthorName,
   deleteTrace as dbDeleteTrace,
   listFriends,
@@ -35,6 +37,7 @@ import {
   changeUsername,
   authorToUsername,
   refreshAuthorNameMap,
+  updateUserProfile,
 } from '../../db/api'
 import type { DBConnection, DBReflection, DBResonate, DBUser } from '../../db/types'
 import type {
@@ -43,6 +46,18 @@ import type {
   PersonSummary,
   SignalNotification,
 } from '../navigation/types'
+import { ACCENT_OPTIONS, findAccent } from '../settings/accents'
+import packageJson from '../../../package.json'
+
+const DEFAULT_ACCENT = ACCENT_OPTIONS[0]
+const APP_VERSION = (packageJson as { version?: string }).version ?? '0.0.0'
+
+type ProfileSavePayload = {
+  name: string
+  bio: string
+  username: string
+  avatar: string | null
+}
 
 // Hardcoded seeds removed in favor of DB
 
@@ -54,6 +69,7 @@ const Shell = () => {
     const parts = path.replace(/^\/+/, '').split('/')
     if (parts[0] === '' || parts[0] === 'circles') return 'circles'
     if (parts[0] === 'signals') return 'signals'
+    if (parts[0] === 'settings') return 'settings'
     if (parts.length === 1) return parts[0] === '' ? 'circles' : 'user'
     return 'trace'
   }
@@ -84,7 +100,6 @@ const Shell = () => {
   const [selfProfileKind, setSelfProfileKind] = useState<TraceType>('circle')
   const [otherProfileKind, setOtherProfileKind] = useState<TraceType>('signal')
   // removed edit state
-  const [editProfileOpen, setEditProfileOpen] = useState(false)
   const [peopleModal, setPeopleModal] = useState<{
     open: boolean
     title: string
@@ -92,6 +107,17 @@ const Shell = () => {
     kind: 'friends' | 'followers' | 'creators'
   }>({ open: false, title: '', list: [], kind: 'friends' })
   const [notifications, setNotifications] = useState<NotificationsState>({ circles: [], signals: [] })
+  const [accentId, setAccentId] = useState<string>(() => {
+    if (typeof window === 'undefined') return DEFAULT_ACCENT.id
+    const storedAccent = window.localStorage.getItem('accentColor')
+    const option = storedAccent ? findAccent(storedAccent) : undefined
+    return option?.id ?? DEFAULT_ACCENT.id
+  })
+  const accent = useMemo(() => findAccent(accentId) ?? DEFAULT_ACCENT, [accentId])
+  const accentColor = useMemo(() => `hsl(${accent.hsl})`, [accent.hsl])
+  const [profileVisibility, setProfileVisibility] = useState<'public' | 'link'>('public')
+  const [savingProfile, setSavingProfile] = useState(false)
+  const [resettingDemo, setResettingDemo] = useState(false)
   const minuteTicker = useMinuteTicker()
   const [meUser, setMeUser] = useState<{ name: string; handle: string; bio?: string; avatar?: string | null; circles?: number; signals?: number } | null>(null)
   const [otherUser, setOtherUser] = useState<{ name: string; handle: string; bio?: string; avatar?: string | null; signalFollowers?: number } | null>(null)
@@ -112,6 +138,8 @@ const Shell = () => {
           return `/${(opts?.user ?? '').toLowerCase()}`
         case 'trace':
           return `/${(opts?.user ?? '').toLowerCase()}/${opts?.traceId ?? ''}`
+        case 'settings':
+          return '/settings'
       }
     },
     [meUsername],
@@ -128,6 +156,12 @@ const Shell = () => {
       }
       if (parts[0] === 'signals') {
         setMode('signals')
+        setViewUser(null)
+        setSelectedTraceId(null)
+        return
+      }
+      if (parts[0] === 'settings') {
+        setMode('settings')
         setViewUser(null)
         setSelectedTraceId(null)
         return
@@ -224,42 +258,80 @@ const Shell = () => {
   )
 
   useEffect(() => {
+    let active = true
     ;(async () => {
       await initDB()
-      // determine current user from settings if present
+
+      let resolvedUsername = meUsername
       try {
-        const { getSetting } = await import('../../db/api')
-        const current = (await getSetting<string>('currentUser')) ?? meUsername
-        setMeUsername(current)
-        const snapshot = await getStateForUser(current)
-        setState(snapshot)
+        const storedUser = await getSetting<string>('currentUser')
+        if (storedUser) {
+          resolvedUsername = storedUser
+          if (active) setMeUsername(storedUser)
+        }
       } catch {
-        const snapshot = await getStateForUser(meUsername)
-        setState(snapshot)
+        resolvedUsername = meUsername
       }
-      // load me user
+
+      const snapshot = await getStateForUser(resolvedUsername)
+      if (active) setState(snapshot)
+
       const { db } = await import('../../db/dexie')
-      const me = await db.users.get(meUsername)
-      if (me) {
-        // Compute actual counts
-        const friendsCount = await db.connections.where('fromUser').equals(meUsername).count()
-        const followersCount = await db.subscriptions.where('followee').equals(meUsername).count()
+      const me = await db.users.get(resolvedUsername)
+      if (me && active) {
+        const friendsCount = await db.connections.where('fromUser').equals(resolvedUsername).count()
+        const followersCount = await db.subscriptions.where('followee').equals(resolvedUsername).count()
         setMeUser({
           name: usernameToAuthorName(me.id),
-          handle: me.handle,
+          handle: me.handle ?? `@${me.id}`,
           bio: me.bio,
           avatar: me.avatar ?? null,
           circles: friendsCount,
           signals: followersCount,
         })
       }
-      // load composer draft
+
       const draftDoc = await dbLoadDraft('composer')
-      if (draftDoc) {
+      if (draftDoc && active) {
         setDraft(draftDoc.text)
         setDraftKind(draftDoc.kind)
       }
+
+      try {
+        const storedAccent = await getSetting<string>('accentColor')
+        const accentOption = storedAccent ? findAccent(storedAccent) : undefined
+        const finalAccent = accentOption ?? DEFAULT_ACCENT
+        if (active) setAccentId(finalAccent.id)
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem('accentColor', finalAccent.id)
+        }
+        if ((!storedAccent || !accentOption) && storedAccent !== finalAccent.id) {
+          await setSetting('accentColor', finalAccent.id)
+        }
+      } catch {
+        if (active) setAccentId(DEFAULT_ACCENT.id)
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem('accentColor', DEFAULT_ACCENT.id)
+        }
+      }
+
+      try {
+        const storedVisibility = await getSetting<'public' | 'link'>('profileVisibility')
+        if (storedVisibility === 'public' || storedVisibility === 'link') {
+          if (active) setProfileVisibility(storedVisibility)
+        } else {
+          await setSetting('profileVisibility', 'public')
+          if (active) setProfileVisibility('public')
+        }
+      } catch {
+        if (active) setProfileVisibility('public')
+      }
     })()
+
+    return () => {
+      active = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Init + back/forward routing
@@ -304,6 +376,13 @@ const Shell = () => {
     window.addEventListener('keydown', listener)
     return () => window.removeEventListener('keydown', listener)
   }, [composerOpen, mode])
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const root = document.documentElement
+    root.style.setProperty('--accent-hsl', accent.hsl)
+    root.style.setProperty('--accent-color', `hsl(${accent.hsl})`)
+  }, [accent])
 
   // Save draft to DB
   useEffect(() => {
@@ -443,6 +522,112 @@ const Shell = () => {
     const prefix = `@${author} `
     if (!reflectionDraft.startsWith(prefix)) setReflectionDraft(prefix)
     setTimeout(() => reflectionInputRef.current?.focus(), 0)
+  }
+
+  const saveProfileSettings = async (payload: ProfileSavePayload): Promise<{ ok: true } | { ok: false; error: string }> => {
+    const name = payload.name.trim()
+    const bio = payload.bio.trim()
+    const username = payload.username.trim().toLowerCase()
+    if (!name) return { ok: false, error: 'Name is required' }
+    if (!username) return { ok: false, error: 'Username is required' }
+    if (!meUser) return { ok: false, error: 'Profile has not loaded yet' }
+
+    setSavingProfile(true)
+    try {
+      const previousUsername = meUsername
+      const previousNormalized = previousUsername.toLowerCase()
+      const previousDisplayName =
+        meUser.name ?? usernameToAuthorName(previousUsername) ?? previousUsername
+      const nextUsername = username
+      const nextNormalized = nextUsername.toLowerCase()
+
+      if (nextUsername !== previousUsername) {
+        await changeUsername(previousUsername, nextUsername)
+        setMeUsername(nextUsername)
+      }
+
+      await updateUserProfile(nextUsername, { name, bio, avatar: payload.avatar ?? undefined })
+      await refreshAuthorNameMap()
+
+      setMeUser((prev) =>
+        prev ? { ...prev, name, bio, avatar: payload.avatar ?? null, handle: `@${nextUsername}` } : prev,
+      )
+
+      setState((prev) => {
+        const updatedTraces = prev.traces.map((trace) => {
+          const authorUsername = trace.authorUsername?.toLowerCase()
+          if (authorUsername === previousNormalized) {
+            return { ...trace, author: name, authorUsername: nextUsername }
+          }
+          if (!authorUsername && trace.author === previousDisplayName) {
+            return { ...trace, author: name }
+          }
+          return trace
+        })
+
+        const remap = <T,>(source: Record<string, T> | undefined): Record<string, T> | undefined => {
+          if (!source) return source
+          if (!(previousNormalized in source)) return source
+          const { [previousNormalized]: value, ...rest } = source
+          return { ...rest, [nextNormalized]: value }
+        }
+
+        const nextConnections = remap(prev.connections) ?? prev.connections
+        const nextConnectedBy = remap(prev.connectedBy) ?? prev.connectedBy
+        const nextFollowing = remap(prev.following) ?? prev.following
+
+        return {
+          ...prev,
+          traces: updatedTraces,
+          connections: nextConnections,
+          connectedBy: nextConnectedBy,
+          following: nextFollowing,
+        }
+      })
+
+      setPeopleModal((prev) => ({
+        ...prev,
+        list: prev.list.map((person) =>
+          person.id === previousUsername ? { ...person, name, handle: `@${nextUsername}` } : person,
+        ),
+      }))
+
+      if (mode === 'profile') {
+        navigate(`/${nextUsername}`)
+      }
+
+      return { ok: true }
+    } catch (error) {
+      if (error instanceof Error) {
+        return { ok: false, error: error.message }
+      }
+      return { ok: false, error: 'Unable to update profile' }
+    } finally {
+      setSavingProfile(false)
+    }
+  }
+
+  const handleAccentChange = async (id: string) => {
+    const option = findAccent(id)
+    if (!option) return
+    setAccentId(option.id)
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('accentColor', option.id)
+    }
+    try {
+      await setSetting('accentColor', option.id)
+    } catch {
+      // Ignore persistence errors; the in-memory accent already updated.
+    }
+  }
+
+  const handleProfileVisibilityChange = async (value: 'public' | 'link') => {
+    setProfileVisibility(value)
+    try {
+      await setSetting('profileVisibility', value)
+    } catch {
+      // ignore
+    }
   }
 
   const selectedTrace = selectedTraceId
@@ -672,22 +857,33 @@ const Shell = () => {
   }, [normalizedMeUsername, previewText, state.connections, state.traces, state.connectedBy])
 
   const resetDemoData = async () => {
-    const { db } = await import('../../db/dexie')
-    await db.delete()
-    await initDB()
-    const snapshot = await getStateForUser(meUsername)
-    setState(snapshot)
+    if (resettingDemo) return
+    setResettingDemo(true)
+    try {
+      const { db } = await import('../../db/dexie')
+      await db.delete()
+      await initDB()
+      const snapshot = await getStateForUser(meUsername)
+      setState(snapshot)
+      const me = await db.users.get(meUsername)
+      if (me) {
+        const friendsCount = await db.connections.where('fromUser').equals(meUsername).count()
+        const followersCount = await db.subscriptions.where('followee').equals(meUsername).count()
+        setMeUser({
+          name: usernameToAuthorName(me.id),
+          handle: me.handle ?? `@${me.id}`,
+          bio: me.bio,
+          avatar: me.avatar ?? null,
+          circles: friendsCount,
+          signals: followersCount,
+        })
+      }
+    } finally {
+      setResettingDemo(false)
+    }
   }
 
   // TopBar is always consistent; per-design back buttons live within profile pages
-
-  const footerAction =
-    mode === 'profile'
-      ? {
-          label: 'Reset demo data',
-          action: resetDemoData,
-        }
-      : null
 
   return (
     <div className="flex min-h-screen flex-col bg-black font-sans text-neutral-100">
@@ -707,7 +903,15 @@ const Shell = () => {
         formatTime={formatTime}
         onOpenTrace={openTraceDetail}
         onOpenProfile={openAuthorProfile}
-        title={mode === 'user' ? otherUser?.name ?? '' : mode === 'trace' ? 'Trace' : undefined}
+        title={
+          mode === 'user'
+            ? otherUser?.name ?? ''
+            : mode === 'trace'
+              ? 'Trace'
+              : mode === 'settings'
+                ? 'Settings'
+                : undefined
+        }
       />
 
       <div className="flex-1">
@@ -781,10 +985,16 @@ const Shell = () => {
                 </div>
                 <div>
                   <button
-                    onClick={() => setEditProfileOpen(true)}
-                    className="inline-flex items-center rounded-full border border-white/10 px-3 py-1 text-sm text-neutral-200 transition hover:bg-white/10"
+                    onClick={() => {
+                      setReturnMode('profile')
+                      setMode('settings')
+                      setViewUser(null)
+                      setSelectedTraceId(null)
+                      navigate(pathFor('settings'))
+                    }}
+                    className="inline-flex items-center rounded-full border border-white/10 px-3 py-1 text-sm text-neutral-200 transition hover:border-[var(--accent-color)] hover:text-white"
                   >
-                    Edit Profile
+                    Settings
                   </button>
                 </div>
               </div>
@@ -847,6 +1057,7 @@ const Shell = () => {
                         onResonate={handleResonate}
                         onReflect={openTraceDetail}
                         onOpenProfile={openAuthorProfile}
+                        showResonateIcon={false}
                         onDelete={async (id) => {
                           await dbDeleteTrace(id)
                           setState((prev) => ({ ...prev, traces: prev.traces.filter((t) => t.id !== id) }))
@@ -892,6 +1103,45 @@ const Shell = () => {
               filterKind={otherProfileKind}
               onChangeFilter={setOtherProfileKind}
             />
+          </motion.div>
+        )}
+
+        {mode === 'settings' && (
+          <motion.div
+            key="settings"
+            initial={false}
+            animate={pageVariants.animate}
+            exit={pageVariants.exit}
+          >
+            {meUser ? (
+              <SettingsPage
+                onBack={() => {
+                  setMode('profile')
+                  setViewUser(null)
+                  setSelectedTraceId(null)
+                  navigate(pathFor('profile'))
+                }}
+                profile={{
+                  name: meUser.name,
+                  bio: meUser.bio ?? '',
+                  username: meUsername,
+                  avatar: meUser.avatar ?? null,
+                }}
+                savingProfile={savingProfile}
+                onSaveProfile={saveProfileSettings}
+                accentId={accentId}
+                onChangeAccent={handleAccentChange}
+                profileVisibility={profileVisibility}
+                onChangeProfileVisibility={handleProfileVisibilityChange}
+                resettingDemo={resettingDemo}
+                onResetDemo={resetDemoData}
+                version={APP_VERSION}
+              />
+            ) : (
+              <div className="mx-auto w-full max-w-2xl px-4 py-20 text-center text-sm text-neutral-500">
+                Loading settings…
+              </div>
+            )}
           </motion.div>
         )}
 
@@ -1021,7 +1271,8 @@ const Shell = () => {
         type="button"
         whileTap={{ scale: 0.94 }}
         onClick={() => setComposerOpen(true)}
-        className="fixed bottom-6 right-5 z-40 flex h-20 w-20 items-center justify-center rounded-full bg-white text-neutral-950 shadow-[0_20px_45px_rgba(255,255,255,0.25)] transition hover:bg-white/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 sm:bottom-8 sm:right-8"
+        className="fixed bottom-6 right-5 z-40 flex h-20 w-20 items-center justify-center rounded-full bg-[var(--accent-color)] text-black shadow-[0_20px_45px_rgba(0,0,0,0.25)] transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-color)]/60 sm:bottom-8 sm:right-8"
+        style={{ backgroundColor: accentColor }}
         aria-label="Compose new trace"
       >
         <Send className="h-8 w-8" strokeWidth={1.6} />
@@ -1041,74 +1292,6 @@ const Shell = () => {
             onImageChange={setDraftImage}
             title="Leave a Trace"
             submitLabel="Post"
-          />
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {editProfileOpen && meUser && (
-          <EditProfileModal
-            isOpen={editProfileOpen}
-            name={meUser.name}
-            bio={meUser.bio}
-            username={meUsername}
-            avatar={meUser.avatar ?? null}
-            onClose={() => setEditProfileOpen(false)}
-            onSave={async (name, bio, username, avatar) => {
-              const { updateUserProfile } = await import('../../db/api')
-              const nextUsername = username.trim()
-              if (!nextUsername) {
-                alert('Username cannot be empty')
-                return
-              }
-              const previousUsername = meUsername
-              const previousUsernameNormalized = previousUsername.toLowerCase()
-              const nextUsernameNormalized = nextUsername.toLowerCase()
-              const previousDisplayName =
-                meUser?.name ?? usernameToAuthorName(previousUsername) ?? previousUsername
-
-              if (nextUsername !== previousUsername) {
-                try {
-                  await changeUsername(previousUsername, nextUsername)
-                  setMeUsername(nextUsername)
-                } catch (error) {
-                  alert('Username already exists')
-                  return
-                }
-              }
-
-              await updateUserProfile(nextUsername, { name, bio, avatar: avatar ?? undefined })
-              await refreshAuthorNameMap()
-
-              setMeUser((prev) =>
-                prev ? { ...prev, name, bio, avatar: avatar ?? null, handle: `@${nextUsername}` } : prev,
-              )
-              setState((prev) => ({
-                ...prev,
-                traces: prev.traces.map((trace) => {
-                  const authorUsername = trace.authorUsername?.toLowerCase()
-                  const matchesPrevious =
-                    authorUsername === previousUsernameNormalized ||
-                    (!authorUsername && trace.author === previousDisplayName)
-                  const matchesNext =
-                    authorUsername === nextUsernameNormalized ||
-                    (!authorUsername && trace.author === name)
-
-                  if (matchesPrevious) {
-                    return { ...trace, author: name, authorUsername: nextUsername }
-                  }
-                  if (matchesNext) {
-                    return { ...trace, author: name }
-                  }
-                  return trace
-                }),
-              }))
-
-              setEditProfileOpen(false)
-              if (mode === 'profile') {
-                navigate(`/${nextUsername}`)
-              }
-            }}
           />
         )}
       </AnimatePresence>
@@ -1146,19 +1329,6 @@ const Shell = () => {
         )}
       </AnimatePresence>
 
-      {/* Edit modal removed: deletion only */}
-
-      <footer className="border-t border-white/10 py-6 text-center text-xs text-neutral-400">
-        Haven · v0.0.1 prototype
-        {footerAction && (
-          <button
-            onClick={footerAction.action}
-            className="ml-4 inline-flex items-center rounded-full border border-white/10 px-3 py-1 text-xs font-medium text-neutral-200 transition hover:border-white/20 hover:text-white"
-          >
-            {footerAction.label}
-          </button>
-        )}
-      </footer>
     </div>
   )
 }

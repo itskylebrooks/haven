@@ -56,6 +56,8 @@ const TopBar = ({
   let derived: Extract<Mode, 'circles' | 'signals' | 'profile'> = 'circles'
   if (mode === 'circles' || mode === 'signals' || mode === 'profile' || mode === 'user') {
     derived = mode === 'user' ? 'profile' : (mode as 'circles' | 'signals' | 'profile')
+  } else if (mode === 'settings') {
+    derived = 'profile'
   }
 
   const activeTab = passedActiveTab ?? derived
@@ -101,8 +103,8 @@ const TopBar = ({
               {item.traceText}
             </div>
             {item.type === 'reflection' && (
-              <div className="rounded-lg bg-emerald-400/10 px-3 py-2 text-xs text-neutral-100">
-                <span className="block text-[11px] font-medium uppercase tracking-wide text-emerald-300">
+              <div className="rounded-lg bg-[hsl(var(--accent-hsl)_/_0.14)] px-3 py-2 text-xs text-neutral-100">
+                <span className="block text-[11px] font-medium uppercase tracking-wide text-[var(--accent-color)]">
                   Reflection
                 </span>
                 <p className="mt-1 text-sm text-neutral-100">{item.text}</p>
@@ -163,13 +165,14 @@ const TopBar = ({
           ref={triggerRef}
           whileTap={{ scale: 0.92 }}
           onClick={() => setIsOpen((open) => !open)}
-          className="relative grid h-9 w-9 place-items-center rounded-full border border-white/10 bg-white/[0.08] text-neutral-100 shadow-[0_4px_16px_rgba(0,0,0,0.25)] transition hover:border-white/30 hover:bg-white/[0.16]"
+          onMouseDown={(event) => event.preventDefault()}
+          className="relative grid h-9 w-9 place-items-center rounded-full border border-white/10 bg-white/[0.08] text-neutral-100 shadow-[0_4px_16px_rgba(0,0,0,0.25)] transition hover:border-white/30 hover:bg-white/[0.16] focus-visible:border-white/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-0 focus-visible:ring-offset-transparent focus-visible:shadow-none"
           aria-label="Open notifications"
           aria-expanded={isOpen}
         >
           <Bell className="h-[18px] w-[18px]" strokeWidth={1.6} />
           {hasNotifications && (
-            <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_0_2px_rgba(12,12,12,0.9)]" />
+            <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-[var(--accent-color)]" />
           )}
         </motion.button>
 
@@ -186,7 +189,7 @@ const TopBar = ({
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-neutral-200">Notifications</span>
                 {hasNotifications ? (
-                  <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-300">
+                  <span className="rounded-full bg-[hsl(var(--accent-hsl)_/_0.22)] px-2 py-0.5 text-xs text-[var(--accent-color)]">
                     {notifications.circles.length + notifications.signals.length}
                   </span>
                 ) : (

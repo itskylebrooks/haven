@@ -14,6 +14,7 @@ type TraceCardProps = {
   hideReflect?: boolean
   onDelete?: (traceId: string) => void
   canDelete?: boolean
+  showResonateIcon?: boolean
 }
 
 const TraceCard = ({
@@ -25,6 +26,7 @@ const TraceCard = ({
   hideReflect,
   onDelete,
   canDelete,
+  showResonateIcon = true,
 }: TraceCardProps) => {
   return (
     <article>
@@ -74,19 +76,21 @@ const TraceCard = ({
             aria-pressed={trace.resonates ?? false}
             whileTap={{ scale: 0.95 }}
           >
-            <motion.span
-              className="flex h-5 w-5 items-center justify-center"
-              style={{ opacity: trace.resonates ? 1 : 0.75 }}
-              animate={trace.resonates ? { scale: [1, 1.15, 1], rotate: [0, -8, 0] } : { scale: 1, rotate: 0 }}
-              transition={{ duration: 0.22 }}
-            >
-              <Sparkles
-                className={clsx(
-                  'h-4 w-4',
-                  trace.resonates ? 'fill-emerald-500 text-emerald-400' : '',
-                )}
-              />
-            </motion.span>
+            {showResonateIcon && (
+              <motion.span
+                className="flex h-5 w-5 items-center justify-center"
+                style={{ opacity: trace.resonates ? 1 : 0.75 }}
+                animate={trace.resonates ? { scale: [1, 1.15, 1], rotate: [0, -8, 0] } : { scale: 1, rotate: 0 }}
+                transition={{ duration: 0.22 }}
+              >
+                <Sparkles
+                  className={clsx(
+                    'h-4 w-4',
+                    trace.resonates ? 'fill-emerald-500 text-emerald-400' : '',
+                  )}
+                />
+              </motion.span>
+            )}
             Resonate
           </motion.button>
           {!hideReflect && (
