@@ -2,8 +2,39 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
+    <!-- Prevent white flash: set theme before CSS loads -->
+    <script>
+      (function() {
+        try {
+          var ls = localStorage.getItem('theme');
+          var preferDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (ls === 'dark' || (!ls && preferDark)) {
+            document.documentElement.classList.add('dark');
+          } else if (ls === 'light') {
+            document.documentElement.classList.remove('dark');
+          }
+        } catch (e) {
+          // If localStorage access fails, fall back to system preference
+          if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+          }
+        }
+      })();
+    </script>
+    <!-- Inline background to avoid flash before CSS -->
+    <style>
+      html, body { background-color: #0a0a0a; }
+    </style>
+    <!-- Light/Dark favicons -->
+    <link rel="icon" type="image/png" href="/icon-light.png" media="(prefers-color-scheme: light)" />
+    <link rel="icon" type="image/png" href="/icon-dark.png" media="(prefers-color-scheme: dark)" />
+    <link rel="apple-touch-icon" href="/icon-light.png" media="(prefers-color-scheme: light)" />
+    <link rel="apple-touch-icon" href="/icon-dark.png" media="(prefers-color-scheme: dark)" />
+    <!-- Theme colors for browser UI -->
+    <meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
     <title>haven</title>
   </head>
   <body>
