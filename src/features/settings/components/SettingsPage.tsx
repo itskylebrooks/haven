@@ -422,7 +422,13 @@ const SettingsPage = ({
         transition={{ delay: 0.2 }}
       >
         <div className="flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
-          <span>© {year} Kyle Brooks. All rights reserved.</span>
+          <span>
+            © {year}{' '}
+            <a href="https://itskylebrooks.vercel.app" target="_blank" rel="noreferrer noopener" className="hover:text-white">
+              Kyle Brooks
+            </a>
+            . All rights reserved.
+          </span>
           <nav className="flex items-center gap-4 text-neutral-400">
             <a href="https://itskylebrooks.vercel.app/imprint" className="hover:text-white" target="_blank" rel="noreferrer noopener">Imprint</a>
             <a href="https://itskylebrooks.vercel.app/privacy" className="hover:text-white" target="_blank" rel="noreferrer noopener">Privacy Policy</a>
