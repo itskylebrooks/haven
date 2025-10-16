@@ -10,7 +10,7 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+        sans: ['"IBM Plex Sans"', 'system-ui', 'sans-serif'],
       },
     },
   },
