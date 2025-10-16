@@ -1,73 +1,61 @@
-# React + TypeScript + Vite
+# Haven
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+*A calm social network for authentic expression and connection*
 
-Currently, two official plugins are available:
+Haven is a minimalist, invite-only social space that blends the clarity of early Twitter with the warmth of early Instagram — **no ads, no algorithms, no public metrics**. It’s designed for small circles of real people, private reciprocity, and feeds that end.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Features (prototype)
+- **Two calm feeds**
+  - **Circles** — mutual/private posts in strict reverse‑chrono.
+  - **Signals** — deliberate public broadcasts (separate feed).
+- **Composer** — write a *Trace* (text) and choose **Circle** or **Signal**.
+- **Profiles** — your portrait + posts, and simple public profiles for others.
+- **Minimal motion** — subtle framer‑motion transitions; the feed ends.
+- **Private feedback (planned)** — **Resonate** (no counts) and **Reflect** (replies).
+- **Local-first data (optional)** — Dexie/IndexedDB for persistence and quick load.
+- When hosted, Haven will use a subscription model. No ads, no tracking.
 
-## React Compiler
+## Principles
+1. **Chronological & finite** — no ranking, no endless scroll.
+2. **No ads, no tracking** — membership-funded when hosted.
+3. **Human-scale** — ~100 connections cap (design constraint, not a growth hack).
+4. **Expression first** — private appreciation instead of public scores.
+5. **Calm design** — dark canvas (#0a0a0a), generous spacing, soft motion.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Tech
+- **Frontend:** React + TypeScript + Vite
+- **Styling:** Tailwind CSS, Lucide icons
+- **Animation:** framer-motion (short, subtle transitions)
+- **Data (prototype):** in‑memory; optional **Dexie (IndexedDB)** integration
+- **Future sync:** Postgres (Supabase) with Row‑Level Security
 
-## Expanding the ESLint configuration
+## Getting started
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Prerequisites
+- Node.js **18+**
+- pnpm, npm, or yarn (examples use `npm`)
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### Setup
+```bash
+# install deps
+npm install
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+# start dev server
+npm run dev
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# build for production
+npm run build
+
+# preview local build
+npm run preview
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+The default dev server prints a local URL. Open it to explore **Circles**, **Signals**, and **Profile**.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Shortcuts (when enabled)
+- **t** — open composer
+- **Esc** — close composer
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## License  
+
+The source code in this repository is licensed under the MIT License (see `LICENSE`).
