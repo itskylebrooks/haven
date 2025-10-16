@@ -92,14 +92,18 @@ const TopBar = ({
   // highlight the tab according to the trace kind). Fallback to deriving
   // from mode. Treat 'user' as 'profile' so loading a user/profile route
   // doesn't briefly highlight 'Circles' before the correct tab is applied.
-  let derived: Extract<Mode, 'circles' | 'signals' | 'profile'> = 'circles'
+  type TabKey = 'circles' | 'signals' | 'profile' | 'none'
+  let derived: TabKey = 'circles'
   if (mode === 'circles' || mode === 'signals' || mode === 'profile' || mode === 'user') {
-    derived = mode === 'user' ? 'profile' : (mode as 'circles' | 'signals' | 'profile')
+    derived = mode === 'user' ? 'profile' : (mode as TabKey)
   } else if (mode === 'settings') {
     derived = 'profile'
+  } else if (mode === 'search' || mode === 'trace') {
+    // While searching or viewing a trace detail, don't highlight any tab
+    derived = 'none'
   }
 
-  const activeTab = passedActiveTab ?? derived
+  const activeTab = (passedActiveTab as TabKey | undefined) ?? derived
   const hasNotifications = notifications.circles.length > 0 || notifications.signals.length > 0
 
   const unreadCircles = useMemo(
@@ -233,7 +237,7 @@ const TopBar = ({
             Search
             {searchActive && (
               <motion.span
-                layoutId="tab-underline"
+                layoutId="search-underline"
                 className="absolute -bottom-[2px] left-0 right-0 h-[2px] rounded-full bg-[var(--accent-color)]"
                 transition={{ type: 'spring', stiffness: 400, damping: 30 }}
               />

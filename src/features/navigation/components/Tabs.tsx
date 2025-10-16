@@ -1,14 +1,13 @@
 import { motion } from 'framer-motion'
-import type { Mode } from '../../../lib/types'
-
-type TabKey = Extract<Mode, 'circles' | 'signals' | 'profile'>
+// Local tab key type; allow a 'none' state when no tab is active
+type TabKey = 'circles' | 'signals' | 'profile' | 'none'
 
 type TabsProps = {
   activeTab: TabKey
-  onSelect: (tab: TabKey) => void
+  onSelect: (tab: Exclude<TabKey, 'none'>) => void
 }
 
-const TAB_LABELS: { key: TabKey; label: string }[] = [
+const TAB_LABELS: { key: Exclude<TabKey, 'none'>; label: string }[] = [
   { key: 'circles', label: 'Circles' },
   { key: 'signals', label: 'Signals' },
   { key: 'profile', label: 'Profile' },
